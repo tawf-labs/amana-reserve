@@ -292,7 +292,7 @@ contract AmanaReserve {
      * @notice Check if the system is Sharia-compliant
      * @dev This validates core principles: no interest, asset-backed, risk-sharing
      */
-    function isShariaShariaCompliant() external pure returns (bool) {
+    function isShariaCompliant() external pure returns (bool) {
         // System is designed to be Sharia-compliant by default
         // - No interest (riba) - only profit/loss sharing
         // - Asset-backed - all capital tied to real economic activities

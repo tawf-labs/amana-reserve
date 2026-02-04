@@ -12,7 +12,7 @@ contract ActivityValidator {
         bytes32 activityId;
         address validator;
         bool isValid;
-        bool isShariaShariaCompliant;
+        bool isShariaCompliant;
         bool isAssetBacked;
         bool hasRealEconomicValue;
         string validationNotes;
@@ -52,7 +52,7 @@ contract ActivityValidator {
     
     // Events
     event ActivitySubmitted(bytes32 indexed activityId, string description);
-    event ActivityValidated(bytes32 indexed activityId, bool isValid, bool isShariaShariaCompliant);
+    event ActivityValidated(bytes32 indexed activityId, bool isValid, bool isShariaCompliant);
     event ValidatorAuthorized(address indexed validator);
     event ValidatorRevoked(address indexed validator);
     event ProhibitedActivityAdded(string activityType);
@@ -108,7 +108,7 @@ contract ActivityValidator {
      * @notice Validate an economic activity
      * @param activityId ID of the activity to validate
      * @param isValid Whether the activity is valid
-     * @param isShariaShariaCompliant Whether the activity is Sharia-compliant
+     * @param isShariaCompliant Whether the activity is Sharia-compliant
      * @param isAssetBacked Whether the activity is backed by real assets
      * @param hasRealEconomicValue Whether the activity has real economic value
      * @param notes Validation notes
@@ -116,7 +116,7 @@ contract ActivityValidator {
     function validateActivity(
         bytes32 activityId,
         bool isValid,
-        bool isShariaShariaCompliant,
+        bool isShariaCompliant,
         bool isAssetBacked,
         bool hasRealEconomicValue,
         string memory notes
@@ -129,7 +129,7 @@ contract ActivityValidator {
             activityId: activityId,
             validator: msg.sender,
             isValid: isValid,
-            isShariaShariaCompliant: isShariaShariaCompliant,
+            isShariaCompliant: isShariaCompliant,
             isAssetBacked: isAssetBacked,
             hasRealEconomicValue: hasRealEconomicValue,
             validationNotes: notes,
@@ -138,14 +138,14 @@ contract ActivityValidator {
         
         activity.isValidated = true;
         
-        emit ActivityValidated(activityId, isValid, isShariaShariaCompliant);
+        emit ActivityValidated(activityId, isValid, isShariaCompliant);
     }
     
     /**
      * @notice Check if an activity type is Sharia-compliant
      * @param activityType Type of activity to check
      */
-    function isShariaShariaCompliant(string memory activityType) public view returns (bool) {
+    function isShariaCompliant(string memory activityType) public view returns (bool) {
         return !prohibitedActivities[activityType];
     }
     
@@ -200,10 +200,10 @@ contract ActivityValidator {
      * @notice Check if activity meets all Sharia compliance criteria
      * @param activityId ID of the activity
      */
-    function meetsShariaShariaCompliance(bytes32 activityId) external view returns (bool) {
+    function meetsShariaCompliance(bytes32 activityId) external view returns (bool) {
         ValidationRecord memory record = validations[activityId];
         return record.isValid && 
-               record.isShariaShariaCompliant && 
+               record.isShariaCompliant && 
                record.isAssetBacked && 
                record.hasRealEconomicValue;
     }

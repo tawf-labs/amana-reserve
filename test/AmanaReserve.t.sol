@@ -204,8 +204,8 @@ contract AmanaReserveTest is Test {
         reserve.withdrawCapital(2 ether);
     }
     
-    function testIsShariaShariaCompliant() public {
-        assertTrue(reserve.isShariaShariaCompliant());
+    function testIsShariaCompliant() public {
+        assertTrue(reserve.isShariaCompliant());
     }
     
     function testGetReserveStats() public {

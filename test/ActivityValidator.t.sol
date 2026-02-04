@@ -10,7 +10,7 @@ contract ActivityValidatorTest is Test {
     address public validator2;
     
     event ActivitySubmitted(bytes32 indexed activityId, string description);
-    event ActivityValidated(bytes32 indexed activityId, bool isValid, bool isShariaShariaCompliant);
+    event ActivityValidated(bytes32 indexed activityId, bool isValid, bool isShariaCompliant);
     
     function setUp() public {
         validator = new ActivityValidator();
@@ -53,18 +53,18 @@ contract ActivityValidatorTest is Test {
         
         ActivityValidator.ValidationRecord memory record = validator.getValidation(activityId);
         assertTrue(record.isValid);
-        assertTrue(record.isShariaShariaCompliant);
+        assertTrue(record.isShariaCompliant);
         assertTrue(record.isAssetBacked);
         assertTrue(record.hasRealEconomicValue);
     }
     
     function testProhibitedActivities() public {
-        assertFalse(validator.isShariaShariaCompliant("alcohol"));
-        assertFalse(validator.isShariaShariaCompliant("gambling"));
-        assertFalse(validator.isShariaShariaCompliant("interest-lending"));
-        assertFalse(validator.isShariaShariaCompliant("speculation"));
-        assertTrue(validator.isShariaShariaCompliant("trade"));
-        assertTrue(validator.isShariaShariaCompliant("manufacturing"));
+        assertFalse(validator.isShariaCompliant("alcohol"));
+        assertFalse(validator.isShariaCompliant("gambling"));
+        assertFalse(validator.isShariaCompliant("interest-lending"));
+        assertFalse(validator.isShariaCompliant("speculation"));
+        assertTrue(validator.isShariaCompliant("trade"));
+        assertTrue(validator.isShariaCompliant("manufacturing"));
     }
     
     function testAuthorizeValidator() public {
@@ -78,22 +78,22 @@ contract ActivityValidatorTest is Test {
     function testAddProhibitedActivity() public {
         string memory newProhibited = "payday-lending";
         
-        assertTrue(validator.isShariaShariaCompliant(newProhibited));
+        assertTrue(validator.isShariaCompliant(newProhibited));
         
         validator.addProhibitedActivity(newProhibited);
         
-        assertFalse(validator.isShariaShariaCompliant(newProhibited));
+        assertFalse(validator.isShariaCompliant(newProhibited));
     }
     
-    function testMeetsShariaShariaCompliance() public {
+    function testMeetsShariaCompliance() public {
         bytes32 activityId = keccak256("activity1");
         validator.submitActivity(activityId, "Halal services", "services", 5 ether);
         
-        assertFalse(validator.meetsShariaShariaCompliance(activityId));
+        assertFalse(validator.meetsShariaCompliance(activityId));
         
         validator.validateActivity(activityId, true, true, true, true, "Fully compliant");
         
-        assertTrue(validator.meetsShariaShariaCompliance(activityId));
+        assertTrue(validator.meetsShariaCompliance(activityId));
     }
     
     function testRejectNonCompliantActivity() public {
@@ -104,7 +104,7 @@ contract ActivityValidatorTest is Test {
         
         ActivityValidator.ValidationRecord memory record = validator.getValidation(activityId);
         assertFalse(record.isValid);
-        assertFalse(record.isShariaShariaCompliant);
-        assertFalse(validator.meetsShariaShariaCompliance(activityId));
+        assertFalse(record.isShariaCompliant);
+        assertFalse(validator.meetsShariaCompliance(activityId));
     }
 }
