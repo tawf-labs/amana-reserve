@@ -1,0 +1,20 @@
+{
+  "name": "@amana/sdk",
+  "version": "1.0.0",
+  "description": "AMANA unified TypeScript SDK for multi-chain interactions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src --ext .ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "ethers": "^6.9.0",
+    "viem": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}

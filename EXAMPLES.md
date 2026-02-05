@@ -1,27 +1,39 @@
 # AMANA Reserve System Examples
 
-This document provides practical examples of how to interact with the AMANA reserve system.
+This document provides practical examples of how to interact with the AMANA reserve system across Ethereum and Solana.
 
 ## Table of Contents
 - [Setup](#setup)
 - [Basic Participation](#basic-participation)
 - [Economic Activities](#economic-activities)
+- [Governance Examples](#governance-examples)
+- [Token Management](#token-management)
+- [Circuit Breaker Operations](#circuit-breaker-operations)
+- [HAI Index Integration](#hai-index-integration)
 - [Capital Pooling](#capital-pooling)
 - [Risk Sharing](#risk-sharing)
 - [Activity Validation](#activity-validation)
-- [Integration for Autonomous Agents](#integration-for-autonomous-agents)
+- [SDK Usage Examples](#sdk-usage-examples)
+- [Solana Program Examples](#solana-program-examples)
+- [Zero-Knowledge Examples](#zero-knowledge-examples)
+- [Cross-Chain Examples](#cross-chain-examples)
+- [Multi-Contract Workflows](#multi-contract-workflows)
 
 ## Setup
 
-### Deployment
+### Contract Deployment
 ```solidity
 // Deploy all contracts
 AmanaReserve reserve = new AmanaReserve();
+AmanaToken token = new AmanaToken();
+AmanaDAO dao = new AmanaDAO(token);
+CircuitBreaker circuitBreaker = new CircuitBreaker(86400); // 24h auto-unlock
+HalalActivityIndex hai = new HalalActivityIndex();
 CapitalPool capitalPool = new CapitalPool();
 RiskSharing riskSharing = new RiskSharing();
 ActivityValidator validator = new ActivityValidator();
 
-// Initialize the reserve with minimum contribution
+// Initialize the reserve
 reserve.initialize(0.1 ether);
 ```
 
@@ -46,8 +58,17 @@ reserve.depositCapital{value: 0.5 ether}();
 
 ### Withdraw Capital
 ```solidity
+// Check withdrawable balance
+uint256 withdrawable = reserve.getWithdrawableBalance(msg.sender);
+
 // Withdraw available capital
 reserve.withdrawCapital(0.3 ether);
+```
+
+### Exit the Reserve
+```solidity
+// Exit and withdraw all capital + profits
+reserve.exitReserve();
 ```
 
 ## Economic Activities
@@ -82,10 +103,10 @@ assert(activity.capitalDeployed == 5 ether);
 int256 profit = 1 ether;
 reserve.completeActivity(activityId, profit);
 
-// System will:
-// 1. Return the deployed capital (5 ETH)
-// 2. Add the profit (1 ETH)
-// 3. Distribute profit among participants
+// System automatically:
+// 1. Returns the deployed capital (5 ETH)
+// 2. Adds the profit (1 ETH)
+// 3. Distributes profit proportionally among participants
 ```
 
 ### Complete Activity with Loss
@@ -94,9 +115,219 @@ reserve.completeActivity(activityId, profit);
 int256 loss = -0.5 ether;
 reserve.completeActivity(activityId, loss);
 
-// System will:
-// 1. Return remaining capital (4.5 ETH)
-// 2. Distribute loss among participants proportionally
+// System automatically:
+// 1. Returns remaining capital (4.5 ETH)
+// 2. Distributes loss proportionally among participants
+```
+
+## Governance Examples
+
+### Create a Standard Proposal
+```solidity
+// Prepare proposal data
+address[] memory targets = new address[](1);
+uint256[] memory values = new uint256[](1);
+bytes[] memory calldatas = new bytes[](1);
+
+targets[0] = address(reserve);
+values[0] = 0;
+calldatas[0] = abi.encodeWithSignature("initialize(uint256)", 0.2 ether);
+
+// Create proposal
+uint256 proposalId = dao.propose(
+    targets,
+    values,
+    calldatas,
+    "Increase minimum capital to 0.2 ETH"
+);
+```
+
+### Create Proposal Affecting Sharia Principles
+```solidity
+// Create proposal that requires Sharia board review
+uint256 proposalId = dao.proposeWithShariaReview(
+    targets,
+    values,
+    calldatas,
+    "Update core reserve parameters",
+    true // affects Sharia principles
+);
+
+// This automatically initiates Sharia review process
+```
+
+### Sharia Board Review
+```solidity
+// Sharia board member reviews proposal
+dao.shariaBoardReview(
+    proposalId,
+    true, // approved
+    "Proposal maintains Sharia compliance and improves system stability"
+);
+
+// Check if proposal is Sharia compliant
+bool compliant = dao.isShariaCompliant(proposalId);
+```
+
+### Sharia Board Veto
+```solidity
+// Sharia board can veto non-compliant proposals
+dao.vetoPauseAction(proposalId);
+
+// This marks the proposal as defeated
+assert(dao.state(proposalId) == IGovernor.ProposalState.Defeated);
+```
+
+### Vote on Proposal
+```solidity
+// Vote on proposal (requires AMANA tokens)
+dao.castVote(proposalId, 1); // 1 = For, 0 = Against, 2 = Abstain
+
+// Vote with reason
+dao.castVoteWithReason(
+    proposalId,
+    1,
+    "This proposal will improve system efficiency"
+);
+```
+
+## Token Management
+
+### Mint Tokens
+```solidity
+// DAO mints tokens to treasury
+token.mint(address(dao), 1000000 * 10**18); // 1M tokens
+```
+
+### Set Vesting
+```solidity
+// Set 90-day vesting for contributor
+uint256 vestingEnd = block.timestamp + 90 days;
+token.setVesting(contributor, vestingEnd);
+
+// Check if address has voting power
+bool canVote = token.hasVotingPower(contributor);
+```
+
+### Delegate Voting Power
+```solidity
+// Delegate voting power to another address
+token.delegate(delegateAddress);
+
+// Self-delegate to activate own voting power
+token.delegate(msg.sender);
+```
+
+### Burn Tokens
+```solidity
+// Burn tokens from own balance
+token.burn(1000 * 10**18); // Burn 1000 tokens
+```
+
+## Circuit Breaker Operations
+
+### Emergency Pause
+```solidity
+// Pause entire system in emergency
+circuitBreaker.pauseSystem("Security incident detected");
+
+// Check if system is paused
+bool paused = circuitBreaker.isPaused();
+assert(paused == true);
+```
+
+### Granular Pausing
+```solidity
+// Pause specific contract
+circuitBreaker.pauseContract(address(reserve));
+
+// Pause specific function
+bytes4 selector = bytes4(keccak256("joinReserve()"));
+circuitBreaker.pauseFunction(selector);
+
+// Check if contract can execute
+bool canExecute = circuitBreaker.canExecute(address(reserve));
+```
+
+### Unpause System
+```solidity
+// Admin or Sharia board can unpause
+circuitBreaker.unpauseSystem();
+
+// Check remaining auto-unlock time
+uint256 remaining = circuitBreaker.getRemainingAutoUnlockTime();
+```
+
+### Sharia Board Veto of Pause
+```solidity
+// Get pause action ID from events
+uint256 actionId = 0; // From PauseAction event
+
+// Sharia board can veto pause actions
+circuitBreaker.vetoPauseAction(actionId);
+```
+
+### Lock System
+```solidity
+// Lock system (requires special unlock)
+circuitBreaker.lockSystem("Critical security issue");
+
+// Unlock system (requires admin + time delay)
+circuitBreaker.unlockSystem(actionId);
+```
+
+## HAI Index Integration
+
+### Track Activity
+```solidity
+// Track a new activity for HAI calculation
+hai.trackActivity(
+    activityId,
+    true,  // isCompliant
+    true,  // isAssetBacked
+    true,  // hasRealEconomicValue
+    3,     // validatorCount
+    3      // positiveVotes
+);
+```
+
+### Get HAI Score
+```solidity
+// Get current HAI score
+uint256 score = hai.currentScore; // 0-10000 (basis points)
+uint256 percentage = hai.getHAIPercentage(); // 0-100
+
+// Get detailed metrics
+(
+    uint256 score,
+    uint256 percentage,
+    uint256 total,
+    uint256 compliant,
+    uint256 complianceRate
+) = hai.getHAIMetrics();
+```
+
+### Create HAI Snapshot
+```solidity
+// Create snapshot of current metrics
+hai.createSnapshot();
+
+// Get latest snapshot
+HalalActivityIndex.HAISnapshot memory snapshot = hai.latestSnapshot();
+
+// Get historical snapshots
+uint256[] memory timestamps = hai.getSnapshotTimestamps();
+```
+
+### Update HAI Weights
+```solidity
+// Update calculation weights (must sum to 10000)
+hai.updateWeights(
+    4000, // compliance: 40%
+    2500, // asset backing: 25%
+    2000, // economic value: 20%
+    1500  // validator participation: 15%
+);
 ```
 
 ## Capital Pooling
@@ -121,7 +352,7 @@ CapitalPool.Pool memory pool = capitalPool.getPool(poolId);
 // Pool activates automatically when target is reached
 ```
 
-### Check Participation
+### Check Pool Participation
 ```solidity
 // Get participant's share in pool
 CapitalPool.PoolParticipant memory participant = 
@@ -139,7 +370,7 @@ bytes32 riskPoolId = keccak256("tech-venture-risk-2024");
 riskSharing.createRiskPool(riskPoolId);
 ```
 
-### Add Participants to Risk Pool
+### Add Participants
 ```solidity
 // Participants join with capital
 riskSharing.addParticipant{value: 10 ether}(riskPoolId);
@@ -149,22 +380,15 @@ RiskSharing.RiskExposure memory exposure =
     riskSharing.getExposure(riskPoolId, msg.sender);
 ```
 
-### Distribute Profit
+### Distribute Profit/Loss
 ```solidity
 // When activity generates profit
 uint256 totalProfit = 5 ether;
 riskSharing.shareProfit(riskPoolId, totalProfit);
 
-// Profit distributed proportionally to capital contribution
-```
-
-### Share Loss
-```solidity
 // When activity incurs loss
 uint256 totalLoss = 2 ether;
 riskSharing.shareLoss(riskPoolId, totalLoss);
-
-// Loss shared proportionally among participants
 ```
 
 ## Activity Validation
@@ -172,19 +396,15 @@ riskSharing.shareLoss(riskPoolId, totalLoss);
 ### Submit Activity for Validation
 ```solidity
 bytes32 activityId = keccak256("halal-manufacturing-2024");
-string memory description = "Halal food manufacturing and distribution";
-string memory activityType = "manufacturing";
-uint256 capitalRequired = 50 ether;
-
 validator.submitActivity(
     activityId,
-    description,
-    activityType,
-    capitalRequired
+    "Halal food manufacturing and distribution",
+    "manufacturing",
+    50 ether
 );
 ```
 
-### Validate Activity (Sharia Compliance)
+### Validate Activity
 ```solidity
 // Validator reviews and validates
 validator.validateActivity(
@@ -201,145 +421,179 @@ validator.validateActivity(
 ```solidity
 // Check if activity type is allowed
 bool compliant = validator.isShariaCompliant("trade");
-assert(compliant == true);
-
-// Check prohibited activities
-bool prohibited = validator.isShariaCompliant("alcohol");
-assert(prohibited == false);
 
 // Check overall compliance
 bool meetsAllCriteria = validator.meetsShariaCompliance(activityId);
 ```
 
-### Add Prohibited Activity
+## SDK Usage Examples
+
+### Initialize SDK
+```typescript
+import { AmanaSDK, ChainType } from '@amana/sdk';
+
+// Initialize for Ethereum
+const amanaEth = new AmanaSDK({
+  chain: ChainType.Ethereum,
+  ethereum: {
+    rpcUrl: 'https://mainnet.infura.io/v3/YOUR_KEY',
+    privateKey: 'YOUR_PRIVATE_KEY'
+  }
+});
+
+// Initialize for Solana
+const amanaSol = new AmanaSDK({
+  chain: ChainType.Solana,
+  solana: {
+    rpcUrl: 'https://api.mainnet-beta.solana.com',
+    keypair: 'YOUR_KEYPAIR'
+  }
+});
+```
+
+### Basic Operations via SDK
+```typescript
+// Join reserve on Ethereum
+await amanaEth.ethereum.joinReserve({
+  amount: '1.0' // 1 ETH
+});
+
+// Propose activity on Solana
+await amanaSol.solana.proposeActivity({
+  activityId: 'halal-trade-001',
+  capitalRequired: '0.5', // 0.5 SOL
+  description: 'Halal food trading operation'
+});
+
+// Get reserve stats
+const stats = await amanaEth.ethereum.getReserveStats();
+console.log('Total capital:', stats.totalCapital);
+```
+
+### Governance via SDK
+```typescript
+// Create governance proposal
+const proposalId = await amanaEth.ethereum.createProposal({
+  title: 'Increase minimum capital',
+  description: 'Proposal to increase minimum participation',
+  targets: [reserveAddress],
+  values: [0],
+  calldatas: [encodedCalldata],
+  affectsSharia: true
+});
+
+// Vote on proposal
+await amanaEth.ethereum.vote({
+  proposalId,
+  support: true,
+  reason: 'This improves system stability'
+});
+```
+
+### HAI Integration via SDK
+```typescript
+// Get current HAI score
+const haiScore = await amanaEth.ethereum.getHAIScore();
+console.log(`Current HAI: ${haiScore.percentage}%`);
+
+// Subscribe to HAI updates
+amanaEth.ethereum.onHAIUpdate((update) => {
+  console.log(`HAI updated: ${update.score} (${update.percentage}%)`);
+});
+
+// Track activity for HAI
+await amanaEth.ethereum.trackHAIActivity({
+  activityId: 'trade-001',
+  isCompliant: true,
+  isAssetBacked: true,
+  hasRealEconomicValue: true
+});
+```
+
+### Cross-Chain Operations
+```typescript
+// Bridge assets from Ethereum to Solana
+await amanaEth.bridge.transfer({
+  to: 'solana',
+  amount: '2.0',
+  asset: 'AMANA',
+  recipient: solanaAddress
+});
+
+// Monitor bridge status
+const status = await amanaEth.bridge.getTransferStatus(transferId);
+```
+
+## Multi-Contract Workflows
+
+### Complete Activity Lifecycle
 ```solidity
-// Add new prohibited activity type
-validator.addProhibitedActivity("derivatives-trading");
+// 1. Submit activity for validation
+validator.submitActivity(activityId, "Halal trade", "trade", 10 ether);
+
+// 2. Validate activity
+validator.validateActivity(activityId, true, true, true, true, "Approved");
+
+// 3. Propose activity to reserve
+reserve.proposeActivity(activityId, 10 ether);
+
+// 4. Approve activity (DAO vote in production)
+reserve.approveActivity(activityId);
+
+// 5. Complete activity with outcome
+reserve.completeActivity(activityId, 2 ether); // 2 ETH profit
+
+// 6. Track for HAI
+hai.trackActivity(activityId, true, true, true, 1, 1);
 ```
 
-## Integration for Autonomous Agents
-
-### Listening to Events
+### Emergency Response Workflow
 ```solidity
-// Listen for new participants
-event ParticipantJoined(address indexed agent, uint256 capitalContributed);
+// 1. Detect issue and pause system
+circuitBreaker.pauseSystem("Security incident");
 
-// Listen for activities
-event ActivityProposed(bytes32 indexed activityId, address indexed initiator, uint256 capitalRequired);
-event ActivityCompleted(bytes32 indexed activityId, int256 outcome);
+// 2. Sharia board reviews pause action
+uint256 actionId = 0; // From event
+// If inappropriate, board can veto
+circuitBreaker.vetoPauseAction(actionId);
 
-// Listen for distributions
-event ProfitDistributed(uint256 totalProfit, uint256 participantCount);
-event LossDistributed(uint256 totalLoss, uint256 participantCount);
+// 3. After resolution, unpause system
+circuitBreaker.unpauseSystem();
 ```
 
-### Agent Workflow Example
-```javascript
-// Example agent workflow in JavaScript/TypeScript
+### Governance Proposal Lifecycle
+```solidity
+// 1. Create proposal affecting Sharia principles
+uint256 proposalId = dao.proposeWithShariaReview(
+    targets, values, calldatas, description, true
+);
 
-class AmanaAgent {
-    async joinReserve(contribution) {
-        const tx = await reserve.joinReserve({ value: contribution });
-        await tx.wait();
-        console.log("Joined reserve with", contribution);
-    }
-    
-    async proposeActivity(activityId, capital, description) {
-        // Submit for validation first
-        await validator.submitActivity(
-            activityId,
-            description,
-            "trade",
-            capital
-        );
-        
-        // Propose to reserve
-        const tx = await reserve.proposeActivity(activityId, capital);
-        await tx.wait();
-        console.log("Proposed activity:", activityId);
-    }
-    
-    async monitorActivities() {
-        // Listen for activity completions
-        reserve.on("ActivityCompleted", (activityId, outcome) => {
-            if (outcome > 0) {
-                console.log("Activity profitable:", outcome.toString());
-            } else {
-                console.log("Activity loss:", outcome.toString());
-            }
-        });
-    }
-}
+// 2. Sharia board reviews
+dao.shariaBoardReview(proposalId, true, "Compliant with Islamic principles");
+
+// 3. Community votes
+dao.castVote(proposalId, 1); // Vote for
+
+// 4. Execute if passed
+dao.execute(targets, values, calldatas, keccak256(bytes(description)));
 ```
 
-### Python Agent Example
-```python
-# Example autonomous agent in Python using Web3.py
+### Capital Pool to Activity Workflow
+```solidity
+// 1. Create capital pool
+capitalPool.createPool(poolId, "Agriculture project", 50 ether);
 
-from web3 import Web3
-from eth_account import Account
+// 2. Contributors join pool
+capitalPool.contributeToPool{value: 10 ether}(poolId);
+// Pool activates when target reached
 
-class AmanaAutonomousAgent:
-    def __init__(self, web3, reserve_address, private_key):
-        self.w3 = web3
-        self.reserve = self.w3.eth.contract(
-            address=reserve_address,
-            abi=RESERVE_ABI
-        )
-        self.account = Account.from_key(private_key)
-    
-    def join_reserve(self, capital_eth):
-        """Join the reserve with capital contribution"""
-        capital_wei = self.w3.to_wei(capital_eth, 'ether')
-        
-        tx = self.reserve.functions.joinReserve().build_transaction({
-            'from': self.account.address,
-            'value': capital_wei,
-            'gas': 200000,
-            'nonce': self.w3.eth.get_transaction_count(self.account.address)
-        })
-        
-        signed_tx = self.account.sign_transaction(tx)
-        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
-        
-        return receipt
-    
-    def propose_economic_activity(self, activity_name, capital_eth):
-        """Propose a new economic activity"""
-        activity_id = self.w3.keccak(text=activity_name)
-        capital_wei = self.w3.to_wei(capital_eth, 'ether')
-        
-        tx = self.reserve.functions.proposeActivity(
-            activity_id,
-            capital_wei
-        ).build_transaction({
-            'from': self.account.address,
-            'gas': 150000,
-            'nonce': self.w3.eth.get_transaction_count(self.account.address)
-        })
-        
-        signed_tx = self.account.sign_transaction(tx)
-        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
-        
-        return self.w3.eth.wait_for_transaction_receipt(tx_hash)
-    
-    def monitor_events(self):
-        """Monitor reserve events for decision making"""
-        # Monitor profit distributions
-        profit_filter = self.reserve.events.ProfitDistributed.create_filter(
-            from_block='latest'
-        )
-        
-        while True:
-            for event in profit_filter.get_new_entries():
-                self.on_profit_distributed(event)
-            time.sleep(10)
-    
-    def on_profit_distributed(self, event):
-        """React to profit distribution"""
-        total_profit = event['args']['totalProfit']
-        print(f"Profit distributed: {self.w3.from_wei(total_profit, 'ether')} ETH")
+// 3. Use pooled capital for activity
+reserve.proposeActivity(activityId, 50 ether);
+reserve.approveActivity(activityId);
+
+// 4. Complete and distribute results
+reserve.completeActivity(activityId, 5 ether); // 5 ETH profit
+// Profit automatically distributed to participants
 ```
 
 ## Best Practices
@@ -347,7 +601,7 @@ class AmanaAutonomousAgent:
 ### For Participants
 1. **Start Small**: Begin with minimum capital contribution
 2. **Validate Activities**: Always check Sharia compliance before participation
-3. **Monitor Performance**: Track activity outcomes regularly
+3. **Monitor HAI**: Track system compliance through HAI index
 4. **Diversify**: Participate in multiple activities to spread risk
 
 ### For Autonomous Agents
@@ -356,61 +610,321 @@ class AmanaAutonomousAgent:
 3. **Error Handling**: Implement robust error handling
 4. **State Verification**: Always verify state before transactions
 
-### For Economic Activities
-1. **Asset-Backed**: Ensure all activities are tied to real assets
-2. **Sharia Compliance**: Validate through ActivityValidator
-3. **Risk Assessment**: Understand and communicate risks
-4. **Transparency**: Provide clear activity descriptions
+### For Governance
+1. **Sharia Review**: Mark proposals affecting Islamic principles
+2. **Community Input**: Gather feedback before major changes
+3. **Emergency Preparedness**: Understand circuit breaker procedures
+4. **Transparency**: Provide clear reasoning for all decisions
 
-## Advanced Examples
+## Error Handling Examples
 
-### Multi-Agent Coordination
+### Common Error Scenarios
 ```solidity
-// Multiple agents coordinating on a single activity
-bytes32 sharedActivityId = keccak256("multi-agent-trade-2024");
+// Handle insufficient capital
+try reserve.joinReserve{value: 0.05 ether}() {
+    // Success
+} catch Error(string memory reason) {
+    if (keccak256(bytes(reason)) == keccak256("Insufficient capital")) {
+        // Handle insufficient capital error
+    }
+}
 
-// Agent 1 proposes
-agent1.proposeActivity(sharedActivityId, 10 ether);
+// Handle max participants reached
+try reserve.joinReserve{value: 1 ether}() {
+    // Success
+} catch Error(string memory reason) {
+    if (keccak256(bytes(reason)) == keccak256("Max participants reached")) {
+        // Handle max participants error
+    }
+}
 
-// Agent 2 validates
-agent2.approveActivity(sharedActivityId);
-
-// Agent 3 monitors
-agent3.watchActivity(sharedActivityId);
+// Handle system paused
+try reserve.proposeActivity(activityId, 5 ether) {
+    // Success
+} catch Error(string memory reason) {
+    if (keccak256(bytes(reason)) == keccak256("System is paused")) {
+        // Wait for system to be unpaused
+    }
+}
 ```
-
-### Profit/Loss Scenarios
-
-#### Scenario 1: Profitable Trade
-```solidity
-// Initial: 100 ETH pool, 10 participants (10 ETH each)
-// Activity: 50 ETH deployed
-// Outcome: 10 ETH profit
-
-// Result:
-// - Pool: 110 ETH total
-// - Each participant: 11 ETH (10% return)
-```
-
-#### Scenario 2: Loss Scenario
-```solidity
-// Initial: 100 ETH pool, 10 participants (10 ETH each)
-// Activity: 50 ETH deployed
-// Outcome: 5 ETH loss
-
-// Result:
-// - Pool: 95 ETH total
-// - Each participant: 9.5 ETH (5% loss shared)
-```
-
-## Security Considerations
-
-1. **Validate Before Approve**: Always validate activities before approval
-2. **Monitor Capital**: Track capital deployment and returns
-3. **Check Compliance**: Ensure Sharia compliance at all stages
-4. **Audit Regularly**: Review participant activities and outcomes
-5. **Limit Exposure**: Don't deploy all capital in single activity
 
 ---
 
-For more information, see the main [README.md](README.md).
+## Solana Program Examples
+
+### Initialize Reserve on Solana
+
+```typescript
+import { AmanaSolanaClient } from '@amana/sdk';
+
+const client = new AmanaSolanaClient({
+  rpcUrl: 'https://api.devnet.solana.com',
+  programIds: {
+    amanaReserve: new PublicKey('AMANareserve...')
+  }
+});
+
+await client.connect(wallet);
+
+// Initialize reserve
+const result = await client.initializeReserve(
+  100_000_000, // 0.1 SOL minimum
+  50           // Max participants
+);
+console.log('Initialize:', result.hash);
+```
+
+### Join Reserve on Solana
+
+```typescript
+// Join with 1 SOL
+const joinResult = await client.joinReserve(1_000_000_000);
+console.log('Joined:', joinResult.hash);
+
+// Verify participation
+const [participantPDA] = client.getParticipantPDA(wallet.publicKey);
+const accountData = await client.getAccountData(participantPDA);
+```
+
+### Propose Activity on Solana
+
+```typescript
+// Generate activity ID
+const activityId = crypto.randomBytes(32);
+
+// Propose activity
+const proposeResult = await client.proposeActivity(
+  activityId,
+  500_000_000,  // 0.5 SOL
+  'Halal food trading operation'
+);
+console.log('Proposed:', proposeResult.hash);
+```
+
+### Track HAI on Solana
+
+```typescript
+// Track activity for HAI
+const trackResult = await client.trackActivity(
+  activityId,
+  true,  // isCompliant
+  true,  // isAssetBacked
+  true,  // hasRealEconomicValue
+  3,     // validatorCount
+  3      // positiveVotes
+);
+```
+
+### PDA Derivation Examples
+
+```typescript
+// Derive reserve PDA
+const [reservePDA, reserveBump] = client.getReservePDA();
+console.log('Reserve:', reservePDA.toBase58(), 'bump:', reserveBump);
+
+// Derive participant PDA
+const [participantPDA, participantBump] = client.getParticipantPDA(userPublicKey);
+console.log('Participant:', participantPDA.toBase58());
+
+// Derive HAI PDA
+const [haiPDA, haiBump] = client.getHAIPDA();
+console.log('HAI:', haiPDA.toBase58());
+```
+
+---
+
+## Zero-Knowledge Examples
+
+### Create Anonymous Identity
+
+```typescript
+import { AgentIdentity } from '@amana/zk';
+
+// Create new identity
+const identity = await AgentIdentity.create();
+console.log('Commitment:', identity.getCommitment());
+
+// Export for storage
+const exported = identity.export();
+
+// Import later
+const imported = await AgentIdentity.import(exported);
+```
+
+### Generate Activity Proof
+
+```typescript
+import { ProofGenerator } from '@amana/zk';
+
+const generator = new ProofGenerator('activity-validation');
+
+// Generate proof for activity proposal
+const proof = await generator.generateProof({
+  // Public inputs
+  activityHash: hashActivity(activityData),
+  minCapital: 100000000000000000n,
+  complianceRequirement: true,
+
+  // Private inputs
+  agentCapital: 500000000000000000n,
+  isCompliant: true,
+  agentPublicKey: identity.publicKey,
+  activitySalt: generateSalt()
+});
+
+console.log('Proof generated:', proof);
+
+// Verify proof
+const isValid = await generator.verifyProof(
+  proof,
+  generator.getPublicSignals(inputs)
+);
+console.log('Valid:', isValid);
+```
+
+### Generate HAI Proof
+
+```typescript
+const haiGenerator = new ProofGenerator('hai-computation');
+
+// Generate HAI proof with privacy
+const haiProof = await haiGenerator.generateProof({
+  // Public
+  weights: [4000, 2500, 2000, 1500],
+  expectedScore: 8500,
+
+  // Private (actual scores kept confidential)
+  complianceScore: 90,
+  assetBackingScore: 85,
+  economicValueScore: 80,
+  validatorScore: 85
+});
+```
+
+### Anonymous Signal Broadcast
+
+```typescript
+// Broadcast signal anonymously
+const groupMembers = await getGroupMembers();
+const merkleProof = await identity.generateMerkleProof(groupMembers);
+
+const signal = await identity.broadcastSignal(
+  groupMembers,
+  merkleProof,
+  'This activity is Sharia-compliant'
+);
+
+console.log('Signal broadcast:', signal);
+
+// Verify signal
+const isValid = await AgentIdentity.verifySignal(
+  signal.message,
+  signal.proof,
+  merkleProof.root
+);
+```
+
+---
+
+## Cross-Chain Examples
+
+### Bridge Tokens from Ethereum to Solana
+
+```typescript
+import { BridgeManager } from '@amana/cross-chain';
+
+const bridge = new BridgeManager({
+  ethereum: {
+    rpcUrl: 'https://mainnet.infura.io/v3/YOUR_KEY',
+    wormhole: { tokenBridge: '0x...' }
+  },
+  solana: {
+    rpcUrl: 'https://api.mainnet-beta.solana.com',
+    wormhole: { tokenBridge: 'wormholeTokenBridge...' }
+  }
+});
+
+// Transfer AMANA tokens
+const transfer = await bridge.transfer({
+  from: 'ethereum',
+  to: 'solana',
+  amount: '1000000000000000000', // 1 AMANA
+  asset: 'AMANA',
+  recipient: 'SolanaAddress...'
+});
+
+console.log('Transfer ID:', transfer.id);
+console.log('Estimated time:', transfer.estimatedTime, 'seconds');
+```
+
+### Sync HAI Across Chains
+
+```typescript
+// Broadcast HAI update from Ethereum to Solana
+await bridge.syncHAI({
+  score: 8500,
+  timestamp: Date.now(),
+  activities: 100,
+  compliant: 85,
+  assetBacked: 90,
+  economicValue: 88
+});
+
+// Get HAI from any chain
+const ethHAI = await bridge.getHAI('ethereum');
+const solHAI = await bridge.getHAI('solana');
+console.log('Ethereum HAI:', ethHAI.score);
+console.log('Solana HAI:', solHAI.score);
+```
+
+### Fee Comparison
+
+```typescript
+// Compare bridge fees
+const fees = await bridge.estimateFees({
+  from: 'ethereum',
+  to: 'solana',
+  amount: '1000000000000000000'
+});
+
+console.log('Wormhole:', fees.wormhole);
+// { amount: '5000000000000000', usd: '10.50' }
+
+console.log('LayerZero:', fees.layerzero);
+// { amount: '3000000000000000', usd: '6.30' }
+
+// Use cheapest automatically
+const transfer = await bridge.transfer({
+  from: 'ethereum',
+  to: 'solana',
+  amount: '1000000000000000000',
+  autoSelectProvider: true
+});
+```
+
+### Transfer Status Tracking
+
+```typescript
+// Check transfer status
+const status = await bridge.getTransferStatus(transfer.id);
+
+switch (status.status) {
+  case 'pending':
+    console.log('Transfer pending...');
+    break;
+  case 'confirming':
+    console.log('Transfer confirming on destination...');
+    break;
+  case 'completed':
+    console.log('Transfer completed!');
+    console.log('Completed at:', status.completedAt);
+    break;
+  case 'failed':
+    console.log('Transfer failed');
+    break;
+}
+```
+
+---
+
+For more information, see the main [README.md](README.md) and [API.md](API.md).

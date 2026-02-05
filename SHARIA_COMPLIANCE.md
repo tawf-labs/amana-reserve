@@ -1,6 +1,6 @@
 # Sharia Compliance in AMANA Reserve
 
-This document explains how the AMANA reserve system implements Islamic finance principles.
+This document explains how the AMANA reserve system implements Islamic finance principles across all system components including governance, tokens, compliance measurement, and emergency controls.
 
 ## Core Principles
 
@@ -148,6 +148,214 @@ struct PoolParticipant {
 }
 ```
 
+## Governance Compliance (AmanaDAO)
+
+### Sharia Board Integration
+
+**Islamic Principle:** Major decisions require consultation (shura) and scholarly oversight.
+
+**AMANA Implementation:**
+- Sharia Board has veto power over protocol changes
+- Transparent voting with public rationale
+- Scholars can override technical decisions for compliance
+- Community consultation before major changes
+
+```solidity
+contract AmanaDAO {
+    mapping(address => bool) public shariaBoard;
+    
+    function vetoProposal(uint256 proposalId, string memory reason) external onlyShariaBoard {
+        proposals[proposalId].vetoed = true;
+        emit ProposalVetoed(proposalId, msg.sender, reason);
+    }
+    
+    function executeProposal(uint256 proposalId) external {
+        require(!proposals[proposalId].vetoed, "Vetoed by Sharia Board");
+        // Execute only if not vetoed
+    }
+}
+```
+
+### Transparent Decision Making
+
+**Islamic Principle:** Decisions must be transparent and consultative (shura).
+
+**AMANA Implementation:**
+- All proposals public with detailed explanations
+- Voting records permanently stored onchain
+- Rationale required for all decisions
+- Community can challenge non-compliant proposals
+
+```solidity
+struct Proposal {
+    string description;
+    string shariaJustification;  // Required compliance explanation
+    uint256 votesFor;
+    uint256 votesAgainst;
+    bool executed;
+    bool vetoed;
+}
+```
+
+## Token Compliance (AMANA Token)
+
+### No Interest-Based Returns
+
+**Islamic Principle:** Token rewards cannot constitute riba (interest).
+
+**AMANA Implementation:**
+- Staking rewards come from actual economic activity profits
+- No guaranteed returns or fixed percentages
+- Rewards tied to system performance and real value creation
+- Loss sharing applies to token holders
+
+```solidity
+contract AmanaToken {
+    function distributeRewards(uint256 totalRewards) external {
+        // Rewards from actual profits, not interest
+        // Distributed proportionally to stake
+        // Can be zero if no profits generated
+    }
+    
+    // ❌ NOT IMPLEMENTED: Fixed interest
+    // function earnFixedInterest() { ... }
+}
+```
+
+### Governance-Only Utility
+
+**Islamic Principle:** Tokens should represent real participation, not speculation.
+
+**AMANA Implementation:**
+- Primary utility is governance participation
+- Voting rights proportional to stake
+- No speculative trading features
+- Aligned with Islamic concept of ownership (milk)
+
+```solidity
+function vote(uint256 proposalId, bool support) external {
+    uint256 votingPower = balanceOf(msg.sender);
+    // Voting power based on actual stake
+}
+```
+
+### Vesting and Lock-up Compliance
+
+**Islamic Principle:** Commitments must be honored (wafa bil-aqd).
+
+**AMANA Implementation:**
+- Vesting schedules prevent speculation
+- Lock-up periods ensure genuine participation
+- Early withdrawal penalties discourage gaming
+- Aligned with long-term value creation
+
+```solidity
+struct VestingSchedule {
+    uint256 totalAmount;
+    uint256 startTime;
+    uint256 duration;
+    uint256 cliffPeriod;  // Minimum commitment period
+}
+```
+
+## HAI Compliance (Halal Activity Index)
+
+### Real-Time Compliance Measurement
+
+**Islamic Principle:** Continuous monitoring of compliance (muraqaba).
+
+**AMANA Implementation:**
+- Dynamic scoring of economic activities
+- Real-time compliance assessment
+- Automated flagging of non-compliant activities
+- Transparent scoring methodology
+
+```solidity
+contract HAIIndex {
+    struct ComplianceScore {
+        uint256 shariaScore;      // 0-100 compliance rating
+        uint256 assetBacking;     // Asset-backing percentage
+        uint256 economicValue;    // Real economic impact score
+        uint256 riskLevel;        // Risk assessment
+        uint256 lastUpdated;
+    }
+    
+    function calculateHAI(bytes32 activityId) external view returns (uint256) {
+        ComplianceScore memory score = complianceScores[activityId];
+        return (score.shariaScore * score.assetBacking * score.economicValue) / 10000;
+    }
+}
+```
+
+### Market Intelligence Integration
+
+**Islamic Principle:** Informed decision-making based on accurate information.
+
+**AMANA Implementation:**
+- Aggregate halal investment opportunities
+- Risk assessment for compliance levels
+- Performance tracking of Sharia-compliant activities
+- Market trends analysis for ethical investments
+
+```solidity
+function getMarketIntelligence() external view returns (
+    uint256 totalHalalOpportunities,
+    uint256 averageComplianceScore,
+    uint256 totalShariaCompliantValue
+) {
+    // Aggregate market data for informed decisions
+}
+```
+
+## Circuit Breaker Compliance
+
+### Emergency Controls with Islamic Principles
+
+**Islamic Principle:** Prevention of harm (la darar wa la dirar) and preservation of wealth.
+
+**AMANA Implementation:**
+- Automatic pause during non-compliant activities
+- Time-locked recovery to prevent hasty decisions
+- Multi-signature controls for distributed authority
+- Preservation of participant capital
+
+```solidity
+contract CircuitBreaker {
+    uint256 public constant RECOVERY_DELAY = 24 hours;  // Cooling-off period
+    
+    function emergencyPause(string memory reason) external onlyValidator {
+        paused = true;
+        pauseTimestamp = block.timestamp;
+        emit EmergencyPause(msg.sender, reason);
+    }
+    
+    function resume() external {
+        require(block.timestamp >= pauseTimestamp + RECOVERY_DELAY, "Cooling period active");
+        require(shariaBoard.approveResumption(), "Sharia Board approval required");
+        paused = false;
+    }
+}
+```
+
+### Risk Threshold Management
+
+**Islamic Principle:** Avoiding excessive risk (gharar) while allowing legitimate business risk.
+
+**AMANA Implementation:**
+- Configurable risk limits based on Sharia principles
+- Automatic intervention when limits exceeded
+- Transparent risk assessment criteria
+- Community-defined risk tolerance
+
+```solidity
+struct RiskThresholds {
+    uint256 maxSingleActivityExposure;    // Prevent concentration risk
+    uint256 maxProhibitedActivityScore;   // Compliance threshold
+    uint256 maxVolatilityLevel;           // Stability requirement
+    uint256 minAssetBackingRatio;         // Asset-backing minimum
+}
+```
+
 ### Wadiah (Safekeeping)
 
 Safekeeping of deposits without guaranteed returns.
@@ -162,6 +370,81 @@ Safekeeping of deposits without guaranteed returns.
 function depositCapital() external payable onlyParticipant {
     // No promise of returns
     // Capital at risk
+}
+```
+
+## Updated Validation Process
+
+### Comprehensive 8-Contract Validation
+
+All activities must pass validation across all system contracts:
+
+1. **AmanaReserve.sol** - Capital allocation compliance
+2. **ActivityValidator.sol** - Sharia compliance verification  
+3. **AmanaDAO.sol** - Governance approval
+4. **CircuitBreaker.sol** - Risk assessment
+5. **AmanaToken.sol** - Token economics compliance
+6. **HAIIndex.sol** - Compliance scoring
+7. **ComplianceMonitor.sol** - Continuous monitoring
+8. **EmergencyControls.sol** - Safety mechanisms
+
+```solidity
+function validateActivityAcrossSystem(bytes32 activityId) external view returns (bool) {
+    return amanaReserve.isValidActivity(activityId) &&
+           activityValidator.meetsShariaCompliance(activityId) &&
+           amanaDAO.isApproved(activityId) &&
+           !circuitBreaker.isBlocked(activityId) &&
+           amanaToken.meetsTokenCompliance(activityId) &&
+           haiIndex.getComplianceScore(activityId) >= MIN_COMPLIANCE_SCORE &&
+           complianceMonitor.isContinuouslyCompliant(activityId) &&
+           emergencyControls.isSafeToExecute(activityId);
+}
+```
+
+### Enhanced Validation Criteria
+
+Each activity must meet expanded criteria:
+
+1. **Sharia Compliance**
+   - No prohibited activities (haram)
+   - No interest components (riba)
+   - No excessive uncertainty (gharar)
+   - Ethical business practices
+
+2. **Asset-Backing Verification**
+   - Tangible asset identification
+   - Asset valuation confirmation
+   - Ownership verification
+   - Asset-to-capital ratio compliance
+
+3. **Economic Value Assessment**
+   - Real economic contribution
+   - Societal benefit analysis
+   - Sustainability evaluation
+   - Long-term value creation
+
+4. **Risk Management**
+   - Risk level within acceptable bounds
+   - Diversification requirements
+   - Concentration limits
+   - Volatility thresholds
+
+5. **Governance Approval**
+   - Community consensus
+   - Sharia Board clearance
+   - Transparent decision process
+   - Appeal mechanism availability
+
+```solidity
+struct EnhancedValidation {
+    bool shariaCompliant;
+    bool assetBacked;
+    bool economicValue;
+    bool riskAcceptable;
+    bool governanceApproved;
+    uint256 complianceScore;
+    uint256 validationTimestamp;
+    address[] validators;
 }
 ```
 
@@ -280,20 +563,108 @@ validator.submitActivity(
 
 ## Governance and Oversight
 
-### Validator Role
-Validators ensure Sharia compliance by:
-1. Reviewing activity descriptions
-2. Verifying asset-backing
-3. Confirming real economic value
-4. Checking prohibited activity lists
-5. Ensuring transparency
+### Multi-Layer Validation System
+The system employs multiple validation layers:
+1. **Technical Validators** - Automated compliance checking
+2. **Community Validators** - Peer review and verification
+3. **Sharia Board** - Islamic finance scholarly oversight
+4. **HAI Index** - Continuous compliance scoring
+5. **Circuit Breakers** - Automated risk management
 
-### Autonomous Operation
-While the system is designed for autonomous operation:
-- Human oversight via validators ensures compliance
-- Community can propose new prohibited activities
-- System is transparent and auditable
+### Validator Responsibilities
+Validators ensure Sharia compliance by:
+1. Reviewing activity descriptions and documentation
+2. Verifying asset-backing and economic substance
+3. Confirming real economic value creation
+4. Checking against prohibited activity lists
+5. Ensuring transparency and proper documentation
+6. Monitoring ongoing compliance through HAI scores
+7. Triggering emergency controls when necessary
+
+### Autonomous Operation with Human Oversight
+While designed for autonomous operation:
+- Human oversight via multi-layer validation ensures compliance
+- Sharia Board provides scholarly guidance and veto power
+- Community governance enables collective decision-making
+- HAI Index provides continuous automated monitoring
+- Circuit breakers prevent systemic compliance failures
+- System maintains transparency and auditability
 - Aligns with Islamic principle of collective responsibility (fard kifayah)
+
+### Continuous Monitoring
+- **Real-time HAI scoring** tracks compliance levels
+- **Automated alerts** for compliance violations
+- **Community reporting** mechanisms for concerns
+- **Regular Sharia Board reviews** of system operations
+- **Transparent reporting** of all activities and outcomes
+
+## Compliance Examples for New Features
+
+### Governance Compliance Example
+
+```solidity
+// Proposal for new feature
+uint256 proposalId = dao.createProposal(
+    "Add renewable energy activity type",
+    "Renewable energy aligns with Islamic stewardship (khalifa) principles"
+);
+
+// Community voting
+dao.vote(proposalId, true);  // Support with rationale
+
+// Sharia Board review
+if (dao.hasQuorum(proposalId)) {
+    // Sharia Board can veto if non-compliant
+    // Otherwise proposal executes automatically
+}
+```
+
+### Token Compliance Example
+
+```solidity
+// Staking for governance participation
+amanaToken.stake(1000 ether);  // Lock tokens for governance
+
+// Rewards from actual profits (not interest)
+uint256 rewards = amanaToken.calculateRewards(msg.sender);
+// Rewards = 0 if no economic activity profits
+// Rewards > 0 only from real economic value creation
+
+// Vesting prevents speculation
+VestingSchedule memory schedule = amanaToken.getVestingSchedule(msg.sender);
+uint256 available = amanaToken.getVestedAmount(msg.sender);
+```
+
+### HAI Index Compliance Example
+
+```solidity
+// Check activity compliance score
+uint256 haiScore = haiIndex.calculateHAI(activityId);
+require(haiScore >= 75, "Insufficient compliance score");
+
+// Real-time monitoring
+ComplianceScore memory score = haiIndex.getComplianceScore(activityId);
+if (score.shariaScore < 50) {
+    // Automatic flagging for review
+    complianceMonitor.flagForReview(activityId);
+}
+```
+
+### Circuit Breaker Compliance Example
+
+```solidity
+// Automatic pause on compliance violation
+if (haiIndex.getComplianceScore(activityId) < MIN_SCORE) {
+    circuitBreaker.emergencyPause("Low compliance score detected");
+}
+
+// Recovery with cooling period
+function attemptResume() external {
+    require(block.timestamp >= pauseTimestamp + 24 hours, "Cooling period");
+    require(shariaBoard.hasApproved(), "Need Sharia Board approval");
+    circuitBreaker.resume();
+}
+```
 
 ## Practical Examples
 
@@ -374,22 +745,34 @@ validator.validateActivity(
 
 ## Continuous Compliance
 
-### Monitoring
-- Regular review of activities
-- Outcome tracking
-- Transparency reports
-- Community oversight
+### Real-Time Monitoring
+- **HAI Index scoring** - Continuous compliance measurement
+- **Automated flagging** - Immediate detection of violations
+- **Circuit breaker activation** - Automatic pause on critical issues
+- **Multi-contract validation** - Comprehensive system-wide checks
+- **Transparent reporting** - Public compliance dashboards
 
-### Updates
-- New prohibited activities can be added
-- Validator network can be expanded
-- System can evolve with scholarly guidance
+### Dynamic Updates
+- New prohibited activities can be added through governance
+- Validator network can be expanded via community proposals
+- Sharia Board can update compliance criteria
+- HAI scoring methodology can be refined
+- Risk thresholds can be adjusted based on market conditions
 
-### Accountability
-- All actions recorded onchain
-- Validators are accountable
-- Participants can verify compliance
-- Transparent profit/loss distribution
+### Accountability Mechanisms
+- All actions recorded onchain with full transparency
+- Validators are accountable through reputation systems
+- Participants can verify compliance through public interfaces
+- Sharia Board decisions are publicly documented
+- Transparent profit/loss distribution with audit trails
+- Community can challenge decisions through governance
+
+### Emergency Response
+- **Circuit breakers** automatically pause non-compliant activities
+- **Multi-signature controls** prevent single points of failure
+- **Time-locked recovery** ensures thoughtful decision-making
+- **Sharia Board oversight** required for system resumption
+- **Community notification** of all emergency actions
 
 ## Scholarly Considerations
 

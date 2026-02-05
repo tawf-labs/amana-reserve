@@ -1,0 +1,17 @@
+{
+  "name": "@amana/zk",
+  "version": "1.0.0",
+  "description": "AMANA zero-knowledge privacy layer",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}

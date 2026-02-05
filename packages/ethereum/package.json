@@ -1,0 +1,18 @@
+{
+  "name": "@amana/ethereum",
+  "version": "1.0.0",
+  "description": "AMANA Ethereum smart contracts (Solidity/Foundry)",
+  "private": true,
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test -vvv",
+    "test:coverage": "forge coverage",
+    "test:gas": "forge snapshot",
+    "deploy": "forge script script/Deploy.s.sol:DeployAmana --broadcast",
+    "clean": "forge clean"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "amana-reserve",
+  "version": "1.0.0",
+  "description": "AMANA Sharia-native macro reserve system for the Internet of Agents",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,sol,md,json}\"",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "dev": "turbo run dev --parallel",
+    "forge:build": "cd packages/ethereum && forge build",
+    "forge:test": "cd packages/ethereum && forge test",
+    "anchor:build": "cd packages/solana && anchor build",
+    "anchor:test": "cd packages/solana && anchor test"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "eslint": "^8.56.0",
+    "prettier": "^3.2.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}

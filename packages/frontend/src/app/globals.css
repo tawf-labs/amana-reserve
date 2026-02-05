@@ -1,0 +1,124 @@
+/**
+ * Global CSS styles for AMANA dashboard
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-neutral-200;
+  }
+
+  body {
+    @apply bg-neutral-50 text-neutral-900;
+  }
+
+  /* Focus visible styles for accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-white;
+  }
+
+  /* Skip link for keyboard navigation */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary-700 focus:text-white focus:rounded-md;
+  }
+}
+
+@layer components {
+  /* Bento grid layout */
+  .bento-grid {
+    @apply grid gap-4;
+    grid-template-columns: repeat(1, 1fr);
+  }
+
+  @media (min-width: 768px) {
+    .bento-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .bento-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  /* Glassmorphism effect (dark mode only) */
+  .glass {
+    @apply bg-white/80 backdrop-blur-md border border-neutral-200/50;
+  }
+
+  .dark .glass {
+    @apply bg-neutral-900/80 backdrop-blur-md border border-neutral-700/50;
+  }
+
+  /* Stat card */
+  .stat-card {
+    @apply rounded-xl border border-neutral-200 bg-white p-6 shadow-sm transition-all hover:shadow-md;
+  }
+
+  .dark .stat-card {
+    @apply border-neutral-800 bg-neutral-950;
+  }
+
+  /* Loading skeleton */
+  .skeleton {
+    @apply animate-pulse bg-neutral-200 rounded;
+  }
+
+  .dark .skeleton {
+    @apply bg-neutral-800;
+  }
+}
+
+@layer utilities {
+  /* Text truncate */
+  .text-truncate {
+    @apply truncate;
+  }
+
+  /* Scrollbar styling */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(203 213 225) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgb(203 213 225);
+    border-radius: 3px;
+  }
+
+  .dark .scrollbar-thin {
+    scrollbar-color: rgb(71 85 105) transparent;
+  }
+
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgb(71 85 105);
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

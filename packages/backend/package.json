@@ -1,0 +1,17 @@
+{
+  "name": "@amana/backend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint services --ext .ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "ethers": "^6.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}
