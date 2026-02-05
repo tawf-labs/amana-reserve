@@ -1,15 +1,20 @@
-//! AMANA Reserve - Main reserve program for Solana
+//! AMANA Reserve - Main reserve program for Solana with MagicBlock ER integration
 //!
 //! This program implements the core reserve functionality for the AMANA
-//! Sharia-native macro reserve system on Solana.
+//! Sharia-native macro reserve system on Solana with real-time capabilities.
 //!
 //! Features:
 //! - Participant management with capital tracking
 //! - Activity proposal and approval
 //! - Profit/loss distribution (Mudarabah/Musharakah)
 //! - Sharia-compliant operations
+//! - Real-time operations via Ephemeral Rollups
+//! - Zero-fee micro-transactions
 
 use anchor_lang::prelude::*;
+use ephemeral_rollups_sdk::anchor::{delegate, commit, ephemeral};
+use ephemeral_rollups_sdk::cpi::DelegateConfig;
+use ephemeral_rollups_sdk::ephem::{commit_accounts, commit_and_undelegate_accounts};
 
 #[program]
 pub mod amana_reserve {
@@ -271,6 +276,70 @@ pub mod amana_reserve {
 
         Ok(())
     }
+
+    // ========== MagicBlock Ephemeral Rollup Integration ==========
+
+    /// Delegate reserve to Ephemeral Rollup for real-time operations
+    pub fn delegate_reserve(ctx: Context<DelegateReserve>) -> Result<()> {
+        ctx.accounts.delegate_pda(
+            &ctx.accounts.payer,
+            &[b"reserve"],
+            DelegateConfig {
+                validator: Some(pubkey!("MAS1Dt9qreoRMQ14YQuhg8UTZMMzDdKhmkZMECCzk57")), // Asia ER Validator
+                ..Default::default()
+            },
+        )?;
+        Ok(())
+    }
+
+    /// Deploy capital to activity in real-time on ER
+    pub fn deploy_capital_realtime(
+        ctx: Context<DeployCapitalRealtime>,
+        activity_id: [u8; 32],
+        amount: u64,
+    ) -> Result<()> {
+        let reserve = &mut ctx.accounts.reserve;
+        let activity = &mut ctx.accounts.activity;
+
+        require!(
+            amount <= reserve.total_capital,
+            AmanaError::InsufficientCapital
+        );
+
+        // Deploy capital instantly on ER
+        activity.capital_deployed = amount;
+        activity.status = ActivityStatus::Active;
+        reserve.total_capital -= amount;
+
+        // Auto-commit critical state changes
+        commit_accounts(
+            &ctx.accounts.payer,
+            vec![
+                &ctx.accounts.reserve.to_account_info(),
+                &ctx.accounts.activity.to_account_info(),
+            ],
+            &ctx.accounts.magic_context,
+            &ctx.accounts.magic_program,
+        )?;
+
+        emit!(CapitalDeployedRealtimeEvent {
+            activity_id,
+            amount,
+        });
+
+        Ok(())
+    }
+
+    /// Commit and undelegate reserve state back to base layer
+    pub fn commit_and_undelegate_reserve(ctx: Context<CommitAndUndelegateReserve>) -> Result<()> {
+        commit_and_undelegate_accounts(
+            &ctx.accounts.payer,
+            vec![&ctx.accounts.reserve.to_account_info()],
+            &ctx.accounts.magic_context,
+            &ctx.accounts.magic_program,
+        )?;
+        Ok(())
+    }
 }
 
 // Account structs
@@ -460,6 +529,64 @@ pub struct WithdrawCapital<'info> {
     pub user: Signer<'info>,
 }
 
+// ========== MagicBlock Context Structs ==========
+
+#[delegate]
+#[derive(Accounts)]
+pub struct DelegateReserve<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    /// CHECK: Checked by the delegate program
+    pub validator: Option<AccountInfo<'info>>,
+    /// CHECK: The reserve PDA to delegate
+    #[account(mut, del)]
+    pub reserve: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct DeployCapitalRealtime<'info> {
+    #[account(
+        mut,
+        seeds = [b"reserve"],
+        bump = reserve.bump
+    )]
+    pub reserve: Account<'info, Reserve>,
+
+    #[account(
+        mut,
+        seeds = [b"activity", activity.activity_id.as_ref()],
+        bump = activity.bump
+    )]
+    pub activity: Account<'info, Activity>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    /// CHECK: MagicBlock context account
+    pub magic_context: AccountInfo<'info>,
+    /// CHECK: MagicBlock program
+    pub magic_program: AccountInfo<'info>,
+}
+
+#[commit]
+#[derive(Accounts)]
+pub struct CommitAndUndelegateReserve<'info> {
+    #[account(
+        mut,
+        seeds = [b"reserve"],
+        bump = reserve.bump
+    )]
+    pub reserve: Account<'info, Reserve>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    /// CHECK: MagicBlock context account
+    pub magic_context: AccountInfo<'info>,
+    /// CHECK: MagicBlock program
+    pub magic_program: AccountInfo<'info>,
+}
+
 // Enums
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
@@ -509,6 +636,14 @@ pub struct CapitalWithdrawnEvent {
     pub amount: u64,
 }
 
+// ========== MagicBlock Events ==========
+
+#[event]
+pub struct CapitalDeployedRealtimeEvent {
+    pub activity_id: [u8; 32],
+    pub amount: u64,
+}
+
 // Errors
 
 #[error_code]
@@ -533,4 +668,6 @@ pub enum AmanaError {
     InactiveParticipant,
     #[msg("Unauthorized access")]
     Unauthorized,
+    #[msg("Insufficient capital")]
+    InsufficientCapital,
 }
