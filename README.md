@@ -53,16 +53,30 @@ This repository is organized as a monorepo with 7 specialized packages:
 ```
 amana-reserve/
 ├── packages/
-│   ├── ethereum/          # Ethereum smart contracts & deployment
-│   ├── solana/           # Solana programs & deployment
+│   ├── ethereum/          # Ethereum smart contracts (Foundry/Solidity)
+│   │   ├── contracts/     # 11 core contracts (Reserve, DAO, HAI, Agents, etc.)
+│   │   ├── script/        # Deployment scripts
+│   │   ├── test/          # Foundry tests
+│   │   └── lib/           # OpenZeppelin dependencies
+│   ├── solana/           # Solana programs (Anchor/Rust)
+│   │   ├── programs/      # 5 programs (reserve, hai, dao, private, actions)
+│   │   ├── tests/         # Anchor tests
+│   │   └── Anchor.toml    # Anchor configuration
 │   ├── sdk/              # Unified TypeScript SDK
-│   ├── backend/          # API server & indexing
-│   ├── frontend/         # Web interface & dashboard
+│   │   └── src/           # Multi-chain client, agent manager, types
+│   ├── backend/          # API server & services
+│   │   └── services/      # api, hai-aggregator, trust-score, websocket
+│   ├── frontend/         # Web dashboard (Next.js)
+│   │   └── src/           # React components, pages
 │   ├── zk/               # Zero-knowledge circuits & proofs
-│   └── cross-chain/      # Bridge contracts & relayers
-├── docs/                 # Documentation
-├── scripts/              # Deployment & utility scripts
-└── package.json          # Root package configuration
+│   │   ├── circuits/      # ZK circuit definitions
+│   │   └── src/           # Prover, identity verification
+│   └── cross-chain/      # Cross-chain bridge layer
+│       └── src/           # Bridge contracts, relayers
+├── .github/              # GitHub workflows & actions
+├── .shared/              # Shared workspace configuration
+├── LICENSE               # Apache 2.0 license
+└── package.json          # Root package configuration (pnpm workspaces)
 ```
 
 ## System Architecture
