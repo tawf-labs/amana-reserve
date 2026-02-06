@@ -486,4 +486,4 @@ packages/cross-chain/
 
 ## License
 
-MIT
+Apache 2.0

@@ -2,6 +2,7 @@
   "name": "@amana/zk",
   "version": "1.0.0",
   "description": "AMANA zero-knowledge privacy layer",
+  "license": "Apache-2.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

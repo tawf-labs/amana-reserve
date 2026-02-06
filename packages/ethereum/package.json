@@ -2,6 +2,7 @@
   "name": "@amana/ethereum",
   "version": "1.0.0",
   "description": "AMANA Ethereum smart contracts (Solidity/Foundry)",
+  "license": "Apache-2.0",
   "private": true,
   "scripts": {
     "build": "forge build",

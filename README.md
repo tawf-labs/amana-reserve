@@ -1,7 +1,7 @@
 # AMANA Reserve
 
 ![Status](https://img.shields.io/badge/status-beta-orange)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![License](https://img.shields.io/badge/license-Apache 2.0-blue)
 ![Solidity](https://img.shields.io/badge/solidity-%5E0.8.26-blue)
 ![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
 ![TypeScript](https://img.shields.io/badge/typescript-5.3%2B-blue)
@@ -637,7 +637,7 @@ git push origin feature/new-feature
 
 ## License
 
-MIT
+Apache 2.0
 
 ## Community & Support
 

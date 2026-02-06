@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// Copyright 2026 TAWF Labs
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.26;
 
 import "./AgentIdentityRegistry.sol";

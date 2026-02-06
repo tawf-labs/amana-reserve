@@ -671,4 +671,4 @@ packages/sdk/
 
 ## License
 
-MIT
+Apache 2.0

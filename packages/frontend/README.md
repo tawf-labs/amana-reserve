@@ -428,4 +428,4 @@ pnpm lint:fix
 
 ## License
 
-MIT
+Apache 2.0

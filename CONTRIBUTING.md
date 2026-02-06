@@ -72,7 +72,7 @@ pnpm format
 Follow the Solidity style guide:
 
 ```solidity
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache 2.0
 pragma solidity ^0.8.26;
 
 /**
@@ -205,7 +205,7 @@ async function functionName(param: Type): Promise<Type> {
 ### Ethereum Tests (Foundry)
 
 ```solidity
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache 2.0
 pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
