@@ -5,21 +5,46 @@
 ![Solidity](https://img.shields.io/badge/solidity-%5E0.8.26-blue)
 ![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
 ![TypeScript](https://img.shields.io/badge/typescript-5.3%2B-blue)
+![EIP-8004](https://img.shields.io/badge/EIP--8004-integrated-green)
+![MagicBlock](https://img.shields.io/badge/MagicBlock-ER-purple)
 
 ## Overview
 
 AMANA is a **Sharia-native macro reserve system** that enables autonomous agents to coordinate capital through real economic activity, shared risk, and onchain trust—without interest, speculation, or human control.
 
-The system is built as a comprehensive **multi-chain platform** supporting both **Ethereum** and **Solana**, with a unified TypeScript SDK, governance infrastructure (AmanaDAO), compliance tracking, emergency controls, and zero-knowledge privacy features—all designed to maintain strict adherence to Islamic finance principles.
+The system is built as a comprehensive **multi-chain platform** supporting both **Ethereum** and **Solana**, featuring:
+
+- **Real-time Operations** via MagicBlock Ephemeral Rollups (ER) for sub-second finality
+- **Trustless Agent Infrastructure** compliant with EIP-8004 standards
+- **Unified SDK** with cross-chain agent coordination
+- **Governance infrastructure** (AmanaDAO) with Sharia Board oversight
+- **Compliance tracking** (HAI Index) with real-time VRF-powered updates
+- **Emergency controls** and zero-knowledge privacy features
+
+## Cutting-Edge Technologies
+
+### 🚀 MagicBlock Ephemeral Rollups (Solana)
+- **Zero-fee micro-transactions** for high-frequency capital deployment
+- **Sub-second finality** with instant state synchronization
+- **Auto-commit** of critical state changes to base layer
+- **VRF integration** for verifiable randomness in compliance sampling
+- **Magic Actions** for automated Sharia compliance checking
+
+### 🤖 EIP-8004 Trustless Agent Infrastructure (Ethereum)
+- **Decentralized agent discovery** and registration via ERC-721 tokens
+- **Portable agent identities** across organizations
+- **Reputation-based trust** mechanisms with on-chain feedback
+- **Independent validation** of agent work with staking
+- **Sharia-compliant agent** workflows and verification
 
 ## Multi-Chain Architecture
 
 AMANA operates across multiple blockchain networks to maximize accessibility and efficiency:
 
-- **Ethereum**: Primary governance and high-value transactions
-- **Solana**: High-throughput operations and micro-transactions
-- **Cross-Chain Bridge**: Seamless asset and data transfer between chains
-- **Unified SDK**: Single interface for all chain interactions
+- **Ethereum**: EIP-8004 agent infrastructure, governance, high-value transactions
+- **Solana**: High-throughput operations, MagicBlock ER for real-time execution
+- **Cross-Chain Bridge**: Seamless asset and data synchronization between chains
+- **Unified SDK**: Single interface for all chains and agent operations
 
 ## Monorepo Structure
 
@@ -44,27 +69,31 @@ amana-reserve/
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Autonomous Agents                            │
+│              Autonomous Agents (EIP-8004 Compliant)             │
+│  • AgentIdentityRegistry  • AgentReputationRegistry            │
+│  • AgentValidationRegistry  • Cross-chain coordination          │
 └─────────────────────────┬───────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                   Unified SDK                                   │
-│  • Multi-chain abstraction  • Event handling                   │
-│  • Wallet integration      • Transaction batching              │
+│                   Unified SDK (Agent Manager)                   │
+│  • Multi-chain abstraction  • Agent lifecycle management       │
+│  • Wallet integration      • Real-time ER operations          │
 └─────────────┬─────────────────────────────┬─────────────────────┘
               │                             │
               ▼                             ▼
 ┌─────────────────────────┐       ┌─────────────────────────┐
 │      Ethereum Layer     │◄─────►│      Solana Layer       │
-│  • AmanaReserve.sol     │       │  • amana_reserve.rs     │
-│  • AmanaDAO.sol         │       │  • amana_dao.rs         │
-│  • CircuitBreaker.sol   │       │  • amana_hai.rs         │
+│  (EIP-8004 Base Layer)  │       │  (MagicBlock ER)        │
+│                         │       │                         │
+│  • AgentIdentityRegistry│       │  • amana_reserve.rs     │
+│  • AgentReputationRegistry│       │  • delegate_reserve()  │
+│  • AgentValidationRegistry│       │  • deploy_capital_*()  │
+│  • AmanaReserve.sol     │       │  • amana_dao.rs         │
+│  • AmanaDAO.sol         │       │  • amana_hai.rs         │
+│  • CircuitBreaker.sol   │       │  • VRF integration      │
 │  • AmanaToken.sol       │       │                         │
 │  • HalalActivityIndex   │       │                         │
-│  • ActivityValidator    │       │                         │
-│  • CapitalPool.sol      │       │                         │
-│  • RiskSharing.sol      │       │                         │
 └─────────────┬───────────┘       └─────────────┬───────────┘
               │                                 │
               └─────────────┬───────────────────┘
@@ -74,14 +103,14 @@ amana-reserve/
               │  • Wormhole support     │
               │  • LayerZero support    │
               │  • HAI synchronization  │
-              │  • Token bridging       │
+              │  • Agent state sync     │
               └─────────────┬───────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Backend Services                             │
 │  • API Gateway          • HAI Aggregator                        │
-│  • Trust Score Service • WebSocket Service                      │
+│  • Agent Indexer       • WebSocket Service                      │
 └─────────────────────────┬───────────────────────────────────────┘
                           │
                           ▼
@@ -94,8 +123,40 @@ amana-reserve/
                           ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Frontend Dashboard                           │
-│  • Real-time metrics  • Activity monitoring  • Governance UI   │
+│  • Real-time metrics  • Agent monitoring  • Governance UI      │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+## Technology Stack Highlights
+
+### Real-Time Operations (MagicBlock ER)
+```
+Solana Base Layer          MagicBlock ER
+     │                         │
+     │ 1. Delegate PDA         │ Zero-fee execution
+     ├────────────────────────>│ Sub-second finality
+     │                         │
+     │ 2. Execute Operations   │ VRF for randomness
+     │<────────────────────────┤
+     │                         │
+     │ 3. Commit State         │ Auto-sync to base
+     │<────────────────────────┘
+```
+
+### Agent Infrastructure (EIP-8004)
+```
+                    ┌──────────────────┐
+                    │ Agent Discovery  │
+                    │  (ERC-721 NFTs)  │
+                    └────────┬─────────┘
+                             │
+        ┌────────────────────┼────────────────────┐
+        ▼                    ▼                    ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│  Reputation   │   │   Feedback    │   │  Validation   │
+│  Registry     │   │   System      │   │   System      │
+│  (On-chain)   │   │  (Staking)    │   │  (Multi-validators)
+└───────────────┘   └───────────────┘   └───────────────┘
 ```
 
 ## Core Principles
@@ -115,39 +176,54 @@ amana-reserve/
 
 ## Key Features
 
-### 1. Governance (AmanaDAO)
+### 1. Trustless Agent Infrastructure (EIP-8004)
+- **Agent Identity Registry**: ERC-721 based agent registration with portable identities
+- **Reputation Registry**: On-chain feedback system with stake-weighted scoring
+- **Validation Registry**: Independent work verification by multiple validators
+- **Sharia-Compliant Agents**: Built-in compliance verification for all agent operations
+- **Cross-Organization Portability**: Agents can work across multiple organizations
+
+### 2. Real-Time Operations (MagicBlock ER)
+- **Zero-Fee Micro-Transactions**: High-frequency capital deployment without gas costs
+- **Sub-Second Finality**: Instant transaction confirmation on Ephemeral Rollups
+- **VRF Integration**: Verifiable randomness for fair compliance sampling
+- **Auto-Commit**: Critical state changes automatically sync to Solana base layer
+- **Magic Actions**: Automated Sharia compliance checking during execution
+
+### 3. Governance (AmanaDAO)
 - **Decentralized Decision Making**: Community-driven governance for protocol upgrades
 - **Sharia Board Integration**: Islamic finance scholars with veto power over non-compliant proposals
 - **Proposal System**: Submit and vote on system improvements
 - **Treasury Management**: Transparent fund allocation and management
 
-### 2. HAI Index (Halal Activity Index)
+### 4. HAI Index (Halal Activity Index)
 - **Real-time Compliance Scoring**: Dynamic assessment of economic activities (0-100%)
+- **VRF-Powered Updates**: Verifiable randomness for data source sampling
 - **Market Intelligence**: Aggregate data on halal investment opportunities
 - **Risk Assessment**: Automated evaluation of activity compliance levels
-- **Performance Tracking**: Historical analysis of Sharia-compliant returns
+- **ER Integration**: Sub-second score updates via MagicBlock
 
-### 3. Circuit Breaker System
+### 5. Circuit Breaker System
 - **Emergency Pause**: Automatic system halt during anomalous conditions
 - **Granular Controls**: Pause specific contracts or functions
 - **Role-based Access**: Admin, Pauser, and Sharia Board roles
 - **Recovery Mechanisms**: Structured restart procedures after incidents
 
-### 4. Token Ecosystem
+### 6. Token Ecosystem
 - **AMANA Token**: Governance and utility token for the ecosystem
 - **Voting Power**: Participate in protocol governance decisions
 - **Vesting System**: Time-locked rewards to prevent speculation
 - **No Interest**: Purely governance-focused, no yield-bearing mechanisms
 
-### 5. Zero-Knowledge Privacy
+### 7. Zero-Knowledge Privacy
 - **Private Transactions**: Confidential capital movements and activities
 - **Compliance Proofs**: Verify Sharia compliance without revealing details
 - **Identity Protection**: Anonymous participation while maintaining accountability
 - **Selective Disclosure**: Choose what information to share publicly
 
-### 6. Cross-Chain Operations
+### 8. Cross-Chain Operations
 - **Asset Bridging**: Move capital between Ethereum and Solana seamlessly
-- **State Synchronization**: Maintain consistent data across all chains
+- **Agent State Sync**: Maintain consistent agent state across all chains
 - **Unified Liquidity**: Access combined liquidity pools from both networks
 - **Chain-Agnostic Interface**: Single SDK for all blockchain interactions
 
@@ -287,6 +363,82 @@ pnpm monitor
 
 ## Usage Examples
 
+### Using the Agent Manager (EIP-8004 + MagicBlock)
+
+```typescript
+import { AgentManager } from '@amana/sdk';
+
+// Initialize with both chains and MagicBlock
+const agentManager = new AgentManager({
+  ethereumProvider,
+  solanaConnection,
+  magicBlockRouterUrl: 'https://devnet-router.magicblock.app',
+  contractAddresses: {
+    agentIdentityRegistry: '0x...',
+    agentReputationRegistry: '0x...',
+    agentValidationRegistry: '0x...'
+  }
+});
+
+// Register Sharia-compliant agent
+const registration = await agentManager.registerAgent({
+  uri: 'https://example.com/agent.json',
+  shariaCompliant: true,
+  capabilities: ['capital-deployment', 'hai-calculation'],
+  endpoints: [
+    { id: 'halal-investments', type: 'http', url: 'https://...' }
+  ]
+});
+```
+
+### Real-Time Operations (MagicBlock ER)
+
+```typescript
+// Deploy capital in real-time on Ephemeral Rollup
+const result = await agentManager.executeAgentOperation(
+  registration.ethereumAgentId,
+  {
+    type: 'deploy_capital',
+    requiresRealTime: true,
+    data: {
+      activityId: 'halal-agriculture-001',
+      amount: 1000000
+    }
+  }
+);
+
+// Sub-second finality with zero gas fees
+console.log('Deployed:', result.txSignature);
+```
+
+### EIP-8004 Agent Reputation System
+
+```typescript
+// Submit agent work for validation
+await agentManager.submitWork({
+  agentId: registration.ethereumAgentId,
+  workId: 'work-123',
+  workUri: 'ipfs://Qm...',
+  validationAmount: '0.1' // ETH stake for validation
+});
+
+// Provide feedback on agent
+await agentManager.submitFeedback({
+  agentId: registration.ethereumAgentId,
+  feedback: {
+    score: 5, // 1-5 rating
+    comment: 'Excellent Sharia-compliant execution',
+    tag: 'reliability'
+  }
+});
+
+// Get agent reputation
+const reputation = await agentManager.getAgentReputation(
+  registration.ethereumAgentId
+);
+console.log('Reputation Score:', reputation.score);
+```
+
 ### Using the Unified SDK
 
 ```typescript
@@ -337,6 +489,7 @@ await bridge.syncHAI({ score: 8500, timestamp: Date.now() });
 ```
 
 ### Governance Participation
+
 ```typescript
 // Create governance proposal
 await amana.governance.createProposal({
@@ -359,14 +512,21 @@ await amana.governance.vote({
 });
 ```
 
-### HAI Index Integration
+### HAI Index Integration with VRF
+
 ```typescript
 // Get current HAI score for an activity
 const haiScore = await amana.hai.getActivityScore('agriculture-pool');
 
-// Subscribe to HAI updates
+// Subscribe to real-time HAI updates (via MagicBlock ER)
 amana.hai.onScoreUpdate((update) => {
   console.log(`HAI score updated: ${update.score} for ${update.activityId}`);
+});
+
+// Update HAI with VRF-powered data source sampling
+await amana.hai.updateWithVRF({
+  activityId: 'agriculture-001',
+  dataSourceCount: 10
 });
 
 // Get market insights
@@ -430,6 +590,7 @@ pnpm start:prod
 - [Architecture](./ARCHITECTURE.md) - System architecture and design
 - [Contributing](./CONTRIBUTING.md) - Development and contribution guidelines
 - [Deployment](./DEPLOYMENT.md) - Deployment guides for all components
+- [MagicBlock + EIP-8004 Integration](./MAGICBLOCK_EIP8004_INTEGRATION.md) - Real-time operations and agent infrastructure
 
 ## Package Documentation
 

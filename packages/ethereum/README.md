@@ -1,12 +1,157 @@
 # AMANA Ethereum Package
 
-Ethereum smart contracts for the AMANA Sharia-native macro reserve system.
+Ethereum smart contracts for the AMANA Sharia-native reserve system with **EIP-8004 Trustless Agent Infrastructure**.
 
 ## Overview
 
-This package contains the core Ethereum smart contracts that implement the AMANA reserve system with full Sharia compliance, including profit/loss sharing (Mudarabah/Musharakah), governance, risk management, and compliance tracking.
+This package contains the core Ethereum smart contracts that implement the AMANA reserve system with full Sharia compliance, including profit/loss sharing (Mudarabah/Musharakah), governance, risk management, compliance tracking, and **EIP-8004 compliant agent infrastructure**.
+
+## EIP-8004 Integration
+
+### Trustless Agent Infrastructure
+
+The Ethereum contracts implement the EIP-8004 standard for trustless agent infrastructure:
+
+- **AgentIdentityRegistry.sol**: ERC-721 based agent registration with portable identities
+- **AgentReputationRegistry.sol**: On-chain feedback and reputation system
+- **AgentValidationRegistry.sol**: Independent work verification by multiple validators
+
+### EIP-8004 Compliance
+
+| Component | EIP-8004 Requirement | Implementation |
+|-----------|---------------------|----------------|
+| Agent Identity | ERC-721 NFT | AgentIdentityRegistry |
+| Agent Discovery | Registry pattern | `getAgentByToken()`, `getAgentById()` |
+| Reputation System | On-chain scoring | AgentReputationRegistry |
+| Validation System | Multi-validator support | AgentValidationRegistry |
+| Compliance | Sharia-compliant agents | Built-in compliance flags |
 
 ## Contracts
+
+### AgentIdentityRegistry.sol
+
+ERC-721 based agent registration with portable identities compliant with EIP-8004.
+
+**Key Features:**
+- ERC-721 NFT-backed agent identities
+- Sharia-compliant agent registration
+- Agent wallet verification with EIP-712 signatures
+- Metadata management with IPFS integration
+- Compliance flagging by Sharia Board
+- Cross-organization portability
+
+**State Variables:**
+```solidity
+uint256 public totalAgents;              // Total registered agents
+uint256 public shariaCompliantAgents;   // Compliant agent count
+mapping(uint256 => address) public agentByToken;  // Token ID => Agent address
+mapping(address => uint256) public tokenByAgent;  // Agent address => Token ID
+```
+
+**Main Functions:**
+| Function | Description | Access |
+|----------|-------------|--------|
+| `registerAgent(string, bool, bytes)` | Register new agent with Sharia compliance | External |
+| `updateAgentURI(uint256, string)` | Update agent metadata URI | Token owner |
+| `verifyAgent(address, bytes)` | Verify agent wallet signature | External |
+| `flagAgent(uint256, bool)` | Sharia board flags non-compliant agents | Sharia Board |
+| `burn(uint256)` | Burn agent NFT (exit) | Token owner |
+
+**Events:**
+```solidity
+event AgentRegistered(uint256 indexed tokenId, address indexed agent, bool shariaCompliant);
+event AgentUpdated(uint256 indexed tokenId);
+event AgentFlagged(uint256 indexed tokenId, bool compliant);
+```
+
+### AgentReputationRegistry.sol
+
+On-chain feedback and reputation system for EIP-8004 agents.
+
+**Key Features:**
+- Stake-weighted feedback submission
+- Tag-based feedback categorization
+- Client filtering for feedback aggregation
+- Sharia-compliant feedback mechanisms
+- Reputation score calculation
+
+**State Variables:**
+```solidity
+struct AgentReputation {
+    uint256 agentId;              // Agent token ID
+    uint256 totalScore;           // Aggregate reputation score
+    uint256 feedbackCount;        // Number of feedback received
+    uint256 positiveCount;        // Positive feedback count
+    uint256 negativeCount;        // Negative feedback count
+    mapping(bytes32 => uint256) tagScores;  // Category scores
+}
+
+mapping(uint256 => AgentReputation) public reputations;
+```
+
+**Main Functions:**
+| Function | Description | Access |
+|----------|-------------|--------|
+| `submitFeedback(uint256, uint8, uint256, bytes32)` | Submit stake-weighted feedback | External |
+| `revokeFeedback(uint256, bytes32)` | Revoke previously submitted feedback | Feedback submitter |
+| `getAgentReputation(uint256)` | Get agent reputation data | View |
+| `getFeedbackCount(uint256, bytes32)` | Get feedback count by tag | View |
+| `calculateScore(uint256)` | Calculate aggregate reputation score | View |
+
+**Events:**
+```solidity
+event FeedbackSubmitted(uint256 indexed agentId, address indexed submitter, uint256 score);
+event FeedbackRevoked(uint256 indexed agentId, bytes32 indexed feedbackId);
+event ReputationUpdated(uint256 indexed agentId, uint256 newScore);
+```
+
+### AgentValidationRegistry.sol
+
+Independent work verification by multiple validators per EIP-8004.
+
+**Key Features:**
+- Request/response validation system
+- Multi-validator support
+- Sharia-compliant validation workflows
+- Validator tracking and rewards
+- Response aggregation and scoring
+
+**State Variables:**
+```solidity
+struct ValidationRequest {
+    uint256 requestId;         // Unique request ID
+    address requester;        // Agent requesting validation
+    string workUri;           // IPFS hash of work
+    uint256 validationAmount;  // Staked amount for validation
+    bytes32 tag;               // Validation category tag
+    ValidationStatus status;
+    uint256 responseCount;    // Number of validator responses
+    uint256 createdAt;
+}
+
+enum ValidationStatus {
+    Pending,    // Awaiting validators
+    Active,     // Validation in progress
+    Completed,  // Validation finished
+    Cancelled   // Request cancelled
+}
+```
+
+**Main Functions:**
+| Function | Description | Access |
+|----------|-------------|--------|
+| `requestValidation(uint256, string, uint256, bytes32)` | Request work validation | External |
+| `submitValidation(uint256, bool, string)` | Submit validation response | Validators |
+| `aggregateResponses(uint256)` | Aggregate and score responses | Requester/Anyone after timeout |
+| `calculateValidationScore(uint256)` | Calculate aggregated score | View |
+| `claimReward(uint256)` | Claim validator reward | Validators |
+
+**Events:**
+```solidity
+event ValidationRequested(uint256 indexed requestId, address indexed requester);
+event ValidationSubmitted(uint256 indexed requestId, address indexed validator, bool approved);
+event ValidationCompleted(uint256 indexed requestId, uint256 finalScore);
+```
 
 ### AmanaReserve.sol
 
@@ -229,45 +374,35 @@ struct RiskPool {
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     AmanaReserve                            │
-│  • Core reserve logic                                       │
-│  • Participant management                                   │
-│  • Activity lifecycle                                       │
-│  • Profit/loss distribution                                 │
-└──────────┬──────────────────────────────────┬───────────────┘
-           │                                  │
-           ▼                                  ▼
-┌─────────────────────┐           ┌─────────────────────────┐
-│     AmanaDAO        │           │    CircuitBreaker       │
-│  • Governance       │           │  • Emergency controls   │
-│  • Voting           │           │  • Pause mechanisms     │
-│  • Sharia Board     │           │  • Granular pausing     │
-└─────────────────────┘           └─────────────────────────┘
-           │                                  │
-           ▼                                  ▼
-┌─────────────────────┐           ┌─────────────────────────┐
-│    AmanaToken       │           │  HalalActivityIndex     │
-│  • Governance token │           │  • HAI scoring          │
-│  • Vesting          │           │  • Compliance tracking  │
-│  • Voting           │           │  • Snapshots            │
-└─────────────────────┘           └─────────────────────────┘
-           │                                  │
-           └────────────┬─────────────────────┘
-                        ▼
-           ┌─────────────────────────┐
-           │   ActivityValidator     │
-           │  • Sharia compliance    │
-           │  • Asset verification   │
-           │  • Economic value check │
-           └───────────┬─────────────┘
-                       │
-         ┌─────────────┴─────────────┐
-         ▼                           ▼
-┌─────────────────────┐   ┌─────────────────────┐
-│    CapitalPool      │   │    RiskSharing      │
-│  • Pool creation    │   │  • Profit sharing   │
-│  • Contributions    │   │  • Loss sharing     │
-└─────────────────────┘   └─────────────────────┘
+│                   EIP-8004 Agent Layer                    │
+│  • AgentIdentityRegistry  • AgentReputationRegistry        │
+│  • AgentValidationRegistry  • Cross-org portability       │
+└────────────────────────────┬────────────────────────────┘
+                             │
+        ┌────────────────────┼────────────────────┐
+        ▼                    ▼                    ▼
+┌─────────────┐       ┌─────────────┐       ┌─────────────┐
+│AmanaReserve│       │  AmanaDAO   │       │CircuitBreaker│
+│             │       │             │       │             │
+│ • Core logic │       │• Governance│       │• Emergency  │
+│• Participants│       │• Sharia    │       │• Controls   │
+└──────┬──────┘       └──────┬──────┘       └──────┬──────┘
+       │                     │                     │
+       └─────────────┬───────┴─────────────┘
+                     ▼
+       ┌─────────────────────────┐
+       │   HalalActivityIndex    │
+       │  • HAI scoring           │
+       │  • Compliance tracking  │
+       │  • Snapshots             │
+       └───────────┬─────────────┘
+                   │
+     ┌─────────────┴─────────────┐
+     ▼                           ▼
+┌─────────────┐         ┌─────────────┐
+│Activity    │         │CapitalPool  │
+│Validator   │         │RiskSharing  │
+└─────────────┘         └─────────────┘
 ```
 
 ## Setup
@@ -332,6 +467,9 @@ test/
 ├── CircuitBreaker.t.sol     # Emergency controls tests
 ├── AmanaToken.t.sol         # Token tests
 ├── HalalActivityIndex.t.sol # HAI tests
+├── AgentIdentityRegistry.t.sol    # EIP-8004 agent tests
+├── AgentReputationRegistry.t.sol  # Reputation system tests
+├── AgentValidationRegistry.t.sol  # Validation tests
 └── Integration.t.sol        # Cross-contract tests
 ```
 
@@ -384,13 +522,16 @@ forge script script/Deploy.s.sol \
 The deployment script (`script/Deploy.s.sol`) deploys all contracts in this order:
 
 1. **AmanaToken** - Governance token
-2. **AmanaReserve** - Main reserve
-3. **ActivityValidator** - Compliance validator
-4. **HalalActivityIndex** - HAI tracker
-5. **CapitalPool** - Pool manager
-6. **RiskSharing** - Risk manager
-7. **CircuitBreaker** - Emergency controls
-8. **AmanaDAO** - Governance (last, depends on others)
+2. **AgentIdentityRegistry** - EIP-8004 agent identities
+3. **AgentReputationRegistry** - Agent reputation system
+4. **AgentValidationRegistry** - Agent validation system
+5. **AmanaReserve** - Main reserve
+6. **ActivityValidator** - Compliance validator
+7. **HalalActivityIndex** - HAI tracker
+8. **CapitalPool** - Pool manager
+9. **RiskSharing** - Risk manager
+10. **CircuitBreaker** - Emergency controls
+11. **AmanaDAO** - Governance (last, depends on others)
 
 ## Contract Addresses
 
@@ -399,6 +540,9 @@ After deployment, record contract addresses:
 ```bash
 # From deployment output
 AmanaToken:       0x...
+AgentIdentityRegistry:      0x...
+AgentReputationRegistry:    0x...
+AgentValidationRegistry:   0x...
 AmanaReserve:     0x...
 ActivityValidator: 0x...
 HalalActivityIndex: 0x...
@@ -420,6 +564,27 @@ cast send \
   --value 0.1ether \
   --private-key $PRIVATE_KEY
 
+# Register EIP-8004 agent
+cast send \
+  $IDENTITY_REGISTRY_ADDRESS \
+  "registerAgent(string,bool,bytes)" \
+  "ipfs://Qm..." true 0x... \
+  --private-key $PRIVATE_KEY
+
+# Submit agent feedback
+cast send \
+  $REPUTATION_REGISTRY_ADDRESS \
+  "submitFeedback(uint256,uint8,uint256,bytes32)" \
+  123 5 100000000000000000 "reliability" \
+  --private-key $PRIVATE_KEY
+
+# Request validation
+cast send \
+  $VALIDATION_REGISTRY_ADDRESS \
+  "requestValidation(uint256,string,uint256,bytes32)" \
+  456 "ipfs://Qm..." 100000000000000000 "capital-deployment" \
+  --private-key $PRIVATE_KEY
+
 # Propose activity
 cast send \
   $RESERVE_ADDRESS \
@@ -437,7 +602,7 @@ cast call \
 ### Using SDK
 
 ```typescript
-import { AmanaSDK } from '@amana/sdk';
+import { AmanaSDK, AgentManager } from '@amana/sdk';
 
 const amana = new AmanaSDK({
   chain: 'ethereum',
@@ -448,12 +613,73 @@ const amana = new AmanaSDK({
       reserve: '0x...',
       dao: '0x...',
       token: '0x...',
+      agentIdentityRegistry: '0x...',
+      agentReputationRegistry: '0x...',
+      agentValidationRegistry: '0x...'
     }
   }
 });
 
+// Register EIP-8004 agent
+const agent = new AgentManager(amana.ethereum);
+const tokenId = await agent.registerAgent({
+  uri: 'ipfs://Qm...',
+  shariaCompliant: true,
+  capabilities: ['capital-deployment', 'hai-calculation']
+});
+
 // Join reserve
 await amana.ethereum.joinReserve({ amount: '1.0' });
+
+// Deploy capital
+await amana.ethereum.proposeActivity(activityId, '0.5');
+```
+
+## EIP-8004 Agent Operations
+
+### Registering an Agent
+
+```typescript
+// Register Sharia-compliant agent
+const registration = await agentManager.registerAgent({
+  uri: 'ipfs://QmXxx...',
+  shariaCompliant: true,
+  capabilities: ['capital-deployment', 'risk-assessment'],
+  endpoints: [
+    { id: 'api', type: 'http', url: 'https://api.example.com' }
+  ]
+});
+```
+
+### Submitting Work for Validation
+
+```typescript
+// Submit work for independent validation
+await agentManager.submitWork({
+  agentId: registration.tokenId,
+  workId: 'work-123',
+  workUri: 'ipfs://QmYyy...',
+  validationAmount: '0.1' // ETH stake for validation
+});
+```
+
+### Managing Reputation
+
+```typescript
+// Provide feedback on agent
+await agentManager.submitFeedback({
+  agentId: registration.tokenId,
+  feedback: {
+    score: 5, // 1-5 rating
+    comment: 'Excellent Sharia-compliant execution',
+    tag: 'reliability'
+  }
+});
+
+// Get agent reputation
+const reputation = await agentManager.getAgentReputation(registration.tokenId);
+console.log('Reputation Score:', reputation.score);
+console.log('Feedback Count:', reputation.feedbackCount);
 ```
 
 ## Verification
@@ -474,6 +700,8 @@ Estimated gas costs for main operations:
 
 | Operation | Gas Limit | Est. Cost (at 20 gwei) |
 |-----------|-----------|------------------------|
+| Register agent | ~150,000 | ~0.003 ETH |
+| Submit feedback | ~80,000 | ~0.0016 ETH |
 | joinReserve | ~150,000 | ~0.003 ETH |
 | proposeActivity | ~80,000 | ~0.0016 ETH |
 | approveActivity | ~60,000 | ~0.0012 ETH |
@@ -484,6 +712,7 @@ Estimated gas costs for main operations:
 ## Security Considerations
 
 - All contracts use OpenZeppelin's AccessControl for role management
+- EIP-8004 agent contracts follow ERC-721 and EIP-7007 standards
 - Circuit breaker can pause any function in emergencies
 - Sharia Board has veto power over governance decisions
 - Reentrancy guards on all external calls
@@ -498,6 +727,7 @@ These contracts implement:
 3. **Mudarabah** - Profit sharing proportional to capital
 4. **Musharakah** - Loss sharing proportional to capital
 5. **Transparency** - All events emitted onchain
+6. **Agent Compliance** - EIP-8004 agents must be Sharia-compliant
 
 ## Development
 

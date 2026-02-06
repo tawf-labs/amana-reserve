@@ -1,10 +1,30 @@
 # AMANA Solana Package
 
-Solana programs (smart contracts) for the AMANA Sharia-native macro reserve system.
+Solana programs (smart contracts) for the AMANA Sharia-native reserve system with **MagicBlock Ephemeral Rollups** for real-time operations.
 
 ## Overview
 
-This package contains Anchor-based Solana programs that implement the AMANA reserve system with full Sharia compliance. The programs are designed for high-throughput operations and low transaction costs.
+This package contains Anchor-based Solana programs that implement the AMANA reserve system with full Sharia compliance. The programs are designed for high-throughput operations and low transaction costs, with **MagicBlock ER integration** for sub-second finality and zero-fee micro-transactions.
+
+## MagicBlock Integration
+
+### Ephemeral Rollup (ER) Features
+
+The Solana programs are enhanced with MagicBlock Ephemeral Rollup capabilities:
+
+- **`delegate_reserve()`**: Delegate reserve PDAs to ER for real-time operations
+- **`deploy_capital_realtime()`**: Instant capital deployment with auto-commit to base layer
+- **`commit_and_undelegate_reserve()`**: Return state from ER to Solana base layer
+- **`update_hai_realtime()`**: Real-time HAI score updates on ER
+- **VRF Integration**: Verifiable randomness for fair compliance data sampling
+
+### ER Validator Support
+
+| Network | Validators |
+|---------|------------|
+| Mainnet | Asia, EU, US regions |
+| Devnet | Asia, EU, US, TEE regions |
+| Localnet | Local development validator |
 
 ## Programs
 
@@ -75,6 +95,10 @@ pub struct Activity {
 | `complete_activity` | Record profit/loss outcome | Reserve, activity |
 | `deposit_capital` | Add more capital | Reserve, participant, user, system |
 | `withdraw_capital` | Withdraw capital | Reserve, participant, user |
+| **ER Instructions** | | |
+| `delegate_reserve` | Delegate reserve PDA to ER | Reserve, authority, ER program |
+| `deploy_capital_realtime` | Deploy capital on ER (zero-fee) | Reserve, activity, ER signer |
+| `commit_and_undelegate` | Commit ER state to base | Reserve, activity, authority |
 
 #### Activity Status
 
@@ -179,19 +203,6 @@ pub struct ShariaBoard {
 
 **PDA Seeds:** `["sharia_board"]`
 
-##### Sharia Review Account
-```rust
-pub struct ShariaReview {
-    pub proposal_id: u64,                 // Related proposal
-    pub board_member: Pubkey,             // Reviewer
-    pub approved: bool,                   // Approval decision
-    pub timestamp: i64,                   // Review time
-    pub bump: u8,                         // PDA bump
-}
-```
-
-**PDA Seeds:** `["review", proposal_id.to_le_bytes().as_ref(), member_key.as_ref()]`
-
 #### Instructions
 
 | Instruction | Description | Accounts |
@@ -231,7 +242,7 @@ pub enum VoteType {
 
 ### 3. amana-hai
 
-Halal Activity Index (HAI) tracking and scoring program.
+Halal Activity Index (HAI) tracking and scoring program with **VRF integration** for verifiable randomness.
 
 **Program ID:** (Generated after deployment)
 
@@ -247,6 +258,7 @@ pub struct Hai {
     pub asset_backed_activities: u64,          // Asset-backed count
     pub economic_value_activities: u64,        // Economic value count
     pub snapshot_count: u64,                   // Snapshot count
+    // Weights (in basis points)
     pub compliance_weight: u16,                // Compliance weight (bps)
     pub asset_backing_weight: u16,             // Asset backing weight (bps)
     pub economic_value_weight: u16,            // Economic value weight (bps)
@@ -315,6 +327,30 @@ Default weights:
 | `update_weights` | Update scoring weights | HAI, admin |
 | `authorize_updater` | Authorize activity updater | HAI, updater_account, admin, system |
 | `revoke_updater` | Revoke updater authorization | HAI, updater_account, admin |
+| **VRF Instructions** | | |
+| `update_hai_with_vrf` | Update HAI with VRF sampling | HAI, VRF account, metrics |
+| `request_vrf_randomness` | Request VRF randomness | VRF program, authority |
+
+#### Events
+
+```rust
+pub struct ActivityTrackedEvent {
+    pub activity_id: [u8; 32],
+    pub is_compliant: bool,
+    pub is_asset_backed: bool,
+    pub new_score: u16,
+}
+
+pub struct SnapshotCreatedEvent {
+    pub snapshot_id: u64,
+    pub score: u16,
+}
+
+pub struct VRFRequestedEvent {
+    pub request_id: u64,
+    pub activity_count: u32,
+}
+```
 
 ## Architecture
 
@@ -331,6 +367,7 @@ Default weights:
 │ • Reserve     │   │ • DAO         │   │ • HAI tracker │
 │ • Participant │   │ • Proposal    │   │ • Metrics     │
 │ • Activity    │   │ • ShariaBoard │   │ • Snapshot    │
+│ • ER Delegation│   │               │   │ • VRF         │
 └───────┬───────┘   └───────┬───────┘   └───────┬───────┘
         │                   │                   │
         └───────────────────┼───────────────────┘
@@ -340,7 +377,18 @@ Default weights:
                   │  • PDAs          │
                   │  • CPIs          │
                   │  • Events        │
-                  └─────────────────┘
+                  └───────┬─────────┘
+                          │
+          ┌───────────────┴───────────────┐
+          ▼                               ▼
+┌─────────────────────┐       ┌─────────────────────────┐
+│   Solana Base Layer  │       │   MagicBlock ER          │
+│   (Settlement)       │       │   (Real-time Execution)  │
+│                      │       │                         │
+│ • Final state        │◄─────│• Zero-fee transactions   │
+│ • Security           │       │• Sub-second finality     │
+│ • Persistence        │       │• VRF integration         │
+└─────────────────────┘       └─────────────────────────┘
 ```
 
 ## Setup
@@ -350,6 +398,7 @@ Default weights:
 - Rust 1.70+
 - Solana CLI 1.16+
 - Anchor 0.29+
+- MagicBlock SDK (for ER functionality)
 
 ### Installation
 
@@ -364,6 +413,9 @@ avm use latest
 
 # Install Solana CLI
 sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
+
+# Add MagicBlock dependency
+cargo add magicblock-sdk
 
 # Build programs
 anchor build
@@ -399,6 +451,10 @@ wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+[magicblock]
+router_url = "https://devnet-router.magicblock.app"
+validator_region = "US"
 ```
 
 ## Building
@@ -428,6 +484,9 @@ anchor test --skip-local-validator
 
 # Run with detailed output
 anchor test -- --nocapture
+
+# Run ER integration tests
+anchor test -- --magicblock
 ```
 
 ### Test Structure
@@ -436,7 +495,8 @@ anchor test -- --nocapture
 tests/
 ├── amana-reserve.ts      # Reserve program tests
 ├── amana-dao.ts          # DAO program tests
-└── amana-hai.ts          # HAI program tests
+├── amana-hai.ts          # HAI program tests
+└── er-integration.ts     # MagicBlock ER tests
 ```
 
 ## Deployment
@@ -477,6 +537,69 @@ anchor deploy --provider.cluster mainnet
 solana program show <PROGRAM_ID>
 ```
 
+## MagicBlock ER Operations
+
+### Delegating to ER
+
+```typescript
+import { MagicBlockER } from '@amana/sdk';
+
+// Initialize ER client
+const er = new MagicBlockER({
+  routerUrl: 'https://devnet-router.magicblock.app',
+  region: 'US'
+});
+
+// Delegate reserve PDA to ER
+const delegateTx = await er.delegateReserve({
+  reservePDA,
+  authority: keypair,
+  validatorRegion: 'US'
+});
+
+console.log('Delegated:', delegateTx.signature);
+```
+
+### Real-Time Capital Deployment
+
+```typescript
+// Deploy capital on ER (zero-fee, sub-second finality)
+const deployTx = await er.deployCapitalRealtime({
+  activityId,
+  amount: 1_000_000_000, // 1 SOL
+  reservePDA,
+  activityPDA
+});
+
+console.log('Deployed:', deployTx.signature);
+```
+
+### Committing State to Base Layer
+
+```typescript
+// Commit ER state changes to Solana base layer
+const commitTx = await er.commitAndUndelegate({
+  reservePDA,
+  activityPDA,
+  authority: keypair
+});
+
+console.log('Committed:', commitTx.signature);
+```
+
+### VRF Integration
+
+```typescript
+// Request VRF for fair data source sampling
+const vrfTx = await er.requestVRF({
+  activityId,
+  dataSourceCount: 10,
+  haiPDA
+});
+
+console.log('VRF Requested:', vrfTx.signature);
+```
+
 ## Program Sizes
 
 | Program | Approx. Size |
@@ -487,15 +610,16 @@ solana program show <PROGRAM_ID>
 
 ## Cost Estimates
 
-| Operation | Est. Cost (SOL) |
-|-----------|-----------------|
-| Initialize reserve | ~0.005 SOL |
-| Join reserve | ~0.0003 SOL |
-| Propose activity | ~0.0002 SOL |
-| Complete activity | ~0.0004 SOL |
-| Create proposal | ~0.0003 SOL |
-| Cast vote | ~0.0001 SOL |
-| Track HAI activity | ~0.0002 SOL |
+| Operation | Est. Cost (SOL) | ER Cost (SOL) |
+|-----------|-----------------|---------------|
+| Initialize reserve | ~0.005 SOL | - |
+| Join reserve | ~0.0003 SOL | - |
+| Propose activity | ~0.0002 SOL | - |
+| Complete activity | ~0.0004 SOL | - |
+| Create proposal | ~0.0003 SOL | - |
+| Cast vote | ~0.0001 SOL | - |
+| Track HAI activity | ~0.0002 SOL | - |
+| **Deploy capital (ER)** | **~0.0004 SOL** | **0 SOL** |
 
 ## PDA Derivation
 
@@ -551,6 +675,10 @@ const client = new AmanaSolanaClient({
     reserve: 'AMANA_RESERVE_PROGRAM_ID',
     dao: 'AMANA_DAO_PROGRAM_ID',
     hai: 'AMANA_HAI_PROGRAM_ID',
+  },
+  magicBlock: {
+    routerUrl: 'https://devnet-router.magicblock.app',
+    enableER: true
   }
 });
 
@@ -564,6 +692,13 @@ await client.joinReserve({
 await client.proposeActivity({
   activityId: generateActivityId(),
   capitalRequired: '0.5'
+});
+
+// Deploy capital on ER for real-time execution
+await client.deployCapitalRealtime({
+  activityId,
+  amount: '0.5',
+  useER: true
 });
 
 // Get HAI score
@@ -604,6 +739,7 @@ hai::cpi::track_activity(
 - Overflow checks on all arithmetic operations
 - Event emission for all state changes
 - Proper signer checks on privileged operations
+- ER state changes are committed to base layer for finality
 
 ## Sharia Compliance
 
@@ -648,6 +784,16 @@ solana program show <PROGRAM_ID>
 
 # Close program (if needed)
 solana program close <PROGRAM_ID>
+```
+
+### ER Connection Issues
+
+```bash
+# Check MagicBlock router status
+curl https://devnet-router.magicblock.app/health
+
+# Verify region availability
+curl https://devnet-router.magicblock.app/validators
 ```
 
 ## Contributing

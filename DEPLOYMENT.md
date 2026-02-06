@@ -5,8 +5,10 @@ Complete deployment instructions for all components of the AMANA system.
 ## Table of Contents
 - [Prerequisites](#prerequisites)
 - [Environment Configuration](#environment-configuration)
+- [EIP-8004 Agent Infrastructure Deployment](#eip-8004-agent-infrastructure-deployment)
 - [Contract Deployment (Ethereum)](#contract-deployment-ethereum)
 - [Program Deployment (Solana)](#program-deployment-solana)
+- [MagicBlock ER Deployment](#magicblock-er-deployment)
 - [Verifying Contracts](#verifying-contracts)
 - [Backend Deployment](#backend-deployment)
 - [Frontend Deployment](#frontend-deployment)
@@ -24,11 +26,13 @@ Complete deployment instructions for all components of the AMANA system.
 - Foundry (for Ethereum)
 - Rust and Anchor (for Solana)
 - Docker (optional, for containerized deployment)
+- MagicBlock CLI (for ER deployment)
 
 ### Required Accounts
 
 - Ethereum RPC endpoint (Infura, Alchemy, etc.)
 - Solana RPC endpoint
+- MagicBlock Router endpoint (for ER deployment)
 - Etherscan API key (for verification)
 - Domain name (for production frontend)
 
@@ -62,6 +66,10 @@ ETHEREUM_PRIVATE_KEY=your_private_key_here
 SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 SOLANA_PRIVATE_KEY=your_base58_encoded_key
 
+# ========== MagicBlock ER ==========
+MAGICBLOCK_ROUTER_URL=https://router.magicblock.app
+MAGICBLOCK_DEVNET_URL=https://devnet-router.magicblock.app
+
 # ========== Backend ==========
 BACKEND_PORT=3000
 BACKEND_HOST=0.0.0.0
@@ -71,10 +79,16 @@ REDIS_URL=redis://localhost:6379
 # ========== Frontend ==========
 NEXT_PUBLIC_API_URL=https://api.amana.finance
 NEXT_PUBLIC_AMANA_CHAIN=ethereum
+NEXT_PUBLIC_ENABLE_MAGICBLOCK=true
 
 # ========== Cross-Chain ==========
 WORMHOLE_ETH_RPC=https://mainnet.infura.io/v3/YOUR_KEY
 WORMHOLE_SOL_RPC=https://api.mainnet-beta.solana.com
+
+# ========== EIP-8004 Agent Infrastructure ==========
+AGENT_IDENTITY_REGISTRY_ADDRESS=0x...
+AGENT_REPUTATION_REGISTRY_ADDRESS=0x...
+AGENT_VALIDATION_REGISTRY_ADDRESS=0x...
 
 # ========== Monitoring ==========
 SENTRY_DSN=https://sentry.io/your-dsn
@@ -89,6 +103,77 @@ LOG_LEVEL=info
 | Ethereum | Sepolia | 11155111 | https://sepolia.infura.io/v3/YOUR_KEY |
 | Solana | Mainnet | N/A | https://api.mainnet-beta.solana.com |
 | Solana | Devnet | N/A | https://api.devnet.solana.com |
+| MagicBlock ER | Devnet | N/A | https://devnet-router.magicblock.app |
+
+---
+
+## EIP-8004 Agent Infrastructure Deployment
+
+The EIP-8004 contracts must be deployed first as they provide the foundation for agent management.
+
+### Deploy Agent Identity Registry
+
+```bash
+cd packages/ethereum
+
+# Deploy AgentIdentityRegistry (ERC-721)
+forge create \
+  contracts/agent/AgentIdentityRegistry.sol:AgentIdentityRegistry \
+  --constructor-args \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --verify \
+  --etherscan-api-key $ETHERSCAN_KEY
+
+# Record the address
+export AGENT_IDENTITY_REGISTRY=0x...
+```
+
+### Deploy Agent Reputation Registry
+
+```bash
+# Deploy AgentReputationRegistry
+forge create \
+  contracts/agent/AgentReputationRegistry.sol:AgentReputationRegistry \
+  --constructor-args $(cast abi-encode "constructor(address)" $AGENT_IDENTITY_REGISTRY) \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY
+
+export AGENT_REPUTATION_REGISTRY=0x...
+```
+
+### Deploy Agent Validation Registry
+
+```bash
+# Deploy AgentValidationRegistry
+forge create \
+  contracts/agent/AgentValidationRegistry.sol:AgentValidationRegistry \
+  --constructor-args $(cast abi-encode "constructor(address,address)" $AGENT_IDENTITY_REGISTRY $AGENT_REPUTATION_REGISTRY) \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY
+
+export AGENT_VALIDATION_REGISTRY=0x...
+```
+
+### Configure Registries
+
+```bash
+# Set initial parameters on Identity Registry
+cast send \
+  $AGENT_IDENTITY_REGISTRY \
+  "setOrganizationAdmin(uint256,address)" \
+  1 $ADMIN_ADDRESS \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY
+
+# Set validation parameters
+cast send \
+  $AGENT_VALIDATION_REGISTRY \
+  "setValidationParameters(uint256,uint256,uint256)" \
+  10000000000000000 300000 5000000000000000 \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY
+```
 
 ---
 
@@ -112,14 +197,14 @@ forge test
 forge test --gas-report
 ```
 
-### Deployment Script
+### Deployment Script with EIP-8004
 
 ```bash
 # Set deployment private key
 export PRIVATE_KEY=your_private_key
 
 # Deploy to Sepolia testnet
-forge script script/Deploy.s.sol \
+forge script script/DeployAll.s.sol \
   --broadcast \
   --rpc-url https://sepolia.infura.io/v3/YOUR_KEY \
   --verify \
@@ -273,6 +358,79 @@ solana program show <PROGRAM_ID>
 
 ---
 
+## MagicBlock ER Deployment
+
+### Prerequisites
+
+```bash
+# Install MagicBlock CLI
+npm install -g @magicblock/cli
+
+# Configure MagicBlock
+magicblock configure --router https://devnet-router.magicblock.app
+```
+
+### Deploy ER Program
+
+```bash
+cd packages/solana
+
+# Build for MagicBlock
+anchor build --provider.cluster devnet
+
+# Deploy to MagicBlock ER
+magicblock deploy \
+  --program amana_reserve \
+  --ephemeral
+
+# The program will be deployed to the ER environment
+# with zero-fee execution capabilities
+```
+
+### Configure Delegation
+
+```bash
+# Set up delegation authority
+magicblock delegate \
+  --program amana_reserve \
+  --authority $DELEGATE_AUTHORITY
+
+# This allows the delegate PDA to be controlled
+# on the ephemeral rollup for zero-fee operations
+```
+
+### Test ER Operations
+
+```bash
+# Test zero-fee capital deployment
+magicblock execute \
+  --instruction deploy_capital_realtime \
+  --params '{"activity_id": "...", "amount": 1000000}'
+
+# Verify zero fees
+magicblock fees --transaction <TX_SIGNATURE>
+# Should show: 0 SOL
+```
+
+### VRF Integration Setup
+
+```bash
+# Configure VRF for HAI sampling
+cast send \
+  $HAI_PROGRAM_ID \
+  "enableVRF(address)" \
+  $VRF_PROGRAM_ID \
+  --rpc-url $SOLANA_RPC_URL
+
+# Test VRF request
+magicblock vrf-request \
+  --callback hai_update \
+  --seed 12345 \
+  --data-source-count 10
+```
+
+---
+
 ## Verifying Contracts
 
 ### Etherscan Verification
@@ -286,6 +444,25 @@ forge verify-contract \
   --chain-id 1 \
   --etherscan-api-key $ETHERSCAN_KEY \
   --watch
+```
+
+### Verify EIP-8004 Contracts
+
+```bash
+# Verify AgentIdentityRegistry
+forge verify-contract \
+  $AGENT_IDENTITY_REGISTRY \
+  src/agent/AgentIdentityRegistry.sol:AgentIdentityRegistry \
+  --chain-id 1 \
+  --etherscan-api-key $ETHERSCAN_KEY
+
+# Verify AgentReputationRegistry
+forge verify-contract \
+  $AGENT_REPUTATION_REGISTRY \
+  src/agent/AgentReputationRegistry.sol:AgentReputationRegistry \
+  --constructor-args $(cast abi-encode "constructor(address)" $AGENT_IDENTITY_REGISTRY) \
+  --chain-id 1 \
+  --etherscan-api-key $ETHERSCAN_KEY
 ```
 
 ### Blockscout Verification
@@ -351,6 +528,8 @@ services:
       - NODE_ENV=production
       - ETHEREUM_RPC_URL=${ETHEREUM_RPC_URL}
       - SOLANA_RPC_URL=${SOLANA_RPC_URL}
+      - MAGICBLOCK_ROUTER_URL=${MAGICBLOCK_ROUTER_URL}
+      - AGENT_IDENTITY_REGISTRY_ADDRESS=${AGENT_IDENTITY_REGISTRY_ADDRESS}
     restart: unless-stopped
 
   redis:
@@ -358,19 +537,6 @@ services:
     ports:
       - "6379:6379"
     restart: unless-stopped
-```
-
-### Manual Deployment
-
-```bash
-# Install dependencies
-pnpm install --production=false
-
-# Build
-pnpm build
-
-# Start in production
-NODE_ENV=production pnpm start
 ```
 
 ### Using PM2
@@ -416,23 +582,6 @@ npm install -g vercel
 vercel --prod
 ```
 
-### Docker Deployment
-
-```dockerfile
-FROM node:20-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci
-
-RUN npm run build
-
-EXPOSE 3000
-
-CMD ["npm", "start"]
-```
-
 ### Environment Variables
 
 ```bash
@@ -441,6 +590,9 @@ NEXT_PUBLIC_API_URL=https://api.amana.finance
 NEXT_PUBLIC_AMANA_CHAIN=ethereum
 NEXT_PUBLIC_AMANA_ETHEREUM_RPC=https://mainnet.infura.io/v3/YOUR_KEY
 NEXT_PUBLIC_AMANA_ETHEREUM_RESERVE=0x...
+NEXT_PUBLIC_AGENT_IDENTITY_REGISTRY=0x...
+NEXT_PUBLIC_ENABLE_MAGICBLOCK=true
+NEXT_PUBLIC_MAGICBLOCK_ROUTER_URL=https://router.magicblock.app
 NEXT_PUBLIC_ENABLE_DARK_MODE=true
 ```
 
@@ -508,10 +660,10 @@ const transactionCounter = new Counter({
   labelNames: ['chain', 'operation', 'status']
 });
 
-const transactionDuration = new Histogram({
-  name: 'amana_transaction_duration_seconds',
-  help: 'Transaction processing duration',
-  labelNames: ['chain', 'operation']
+const erTransactionCounter = new Counter({
+  name: 'amana_er_transactions_total',
+  help: 'Total ER transactions (zero-fee)',
+  labelNames: ['operation', 'status']
 });
 
 register.register();
@@ -523,7 +675,11 @@ register.register();
 # Backend health check
 curl https://api.amana.finance/health
 
-# Returns system status
+# Returns system status including:
+# - API status
+# - Blockchain connections
+# - MagicBlock ER status
+# - Agent registry status
 ```
 
 ### Error Tracking (Sentry)
@@ -546,14 +702,19 @@ Sentry.init({
 
 - [ ] All security audits completed
 - [ ] Tests passing with required coverage
+- [ ] EIP-8004 contracts deployed and verified
 - [ ] Environment variables configured
 - [ ] DNS records configured
 - [ ] SSL certificates installed
 - [ ] Monitoring services set up
+- [ ] MagicBlock ER configured
 
 ### Deployment Day
 
-- [ ] Deploy contracts to testnet first
+- [ ] Deploy EIP-8004 contracts to testnet first
+- [ ] Deploy core contracts to testnet
+- [ ] Deploy Solana programs to devnet
+- [ ] Deploy MagicBlock ER programs
 - [ ] Verify all deployments
 - [ ] Run integration tests
 - [ ] Deploy to production
@@ -564,6 +725,8 @@ Sentry.init({
 
 - [ ] Verify all services operational
 - [ ] Check monitoring dashboards
+- [ ] Verify EIP-8004 agent registration works
+- [ ] Test MagicBlock ER zero-fee operations
 - [ ] Monitor for 24-48 hours
 - [ ] Address any issues promptly
 
@@ -573,29 +736,54 @@ Sentry.init({
 
 ### Common Issues
 
-**Contract Deployment Fails**
+**EIP-8004 Agent Registration Fails**
 ```bash
-# Check gas price
-cast gas-price --rpc-url $RPC_URL
+# Check if Identity Registry is deployed
+cast code $AGENT_IDENTITY_REGISTRY --rpc-url $RPC_URL
 
-# Increase gas limit
-forge script ... --gas-limit 3000000
+# Verify organization exists
+cast call \
+  $AGENT_IDENTITY_REGISTRY \
+  "getOrganization(uint256)(bool)" \
+  1 \
+  --rpc-url $RPC_URL
 ```
 
-**Program Size Too Large**
+**MagicBlock ER Deployment Fails**
 ```bash
-# Check program size
-solana program show <PROGRAM_ID>
+# Check Router status
+magicblock status --router https://devnet-router.magicblock.app
 
-# Optimize program
-anchor build --verilize
+# Verify program is ER-compatible
+magicblock check --program amana_reserve
 ```
 
-**Connection Issues**
+**Zero-Fee Operations Not Working**
 ```bash
-# Check RPC endpoint
-curl -X POST $RPC_URL -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}'
+# Verify delegation is set
+magicblock delegate-status --program amana_reserve
+
+# Check if PDA is delegated
+cast call \
+  $RESERVE_ADDRESS \
+  "delegate()(address)" \
+  --rpc-url $SOLANA_RPC_URL
+```
+
+**VRF Request Fails**
+```bash
+# Check VRF program integration
+cast call \
+  $HAI_PROGRAM_ID \
+  "vrfEnabled()(bool)" \
+  --rpc-url $SOLANA_RPC_URL
+
+# Re-enable VRF if needed
+cast send \
+  $HAI_PROGRAM_ID \
+  "enableVRF(address)" \
+  $VRF_PROGRAM_ID \
+  --rpc-url $SOLANA_RPC_URL
 ```
 
 ---

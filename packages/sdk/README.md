@@ -1,10 +1,20 @@
 # AMANA SDK
 
-Unified TypeScript SDK for interacting with the AMANA Sharia-native macro reserve system across Ethereum and Solana blockchains.
+Unified TypeScript SDK for interacting with the AMANA Sharia-native reserve system across Ethereum and Solana, with **EIP-8004 Agent Manager** and **MagicBlock ER** support.
 
 ## Overview
 
 The AMANA SDK provides a type-safe, chain-agnostic interface for interacting with all AMANA contracts and programs. It abstracts away the differences between Ethereum and Solana, allowing developers to write code that works seamlessly across both blockchains.
+
+## Key Features
+
+- **Chain-Agnostic API**: Single interface for Ethereum and Solana
+- **Agent Manager**: EIP-8004 compliant agent lifecycle management
+- **Real-Time Operations**: MagicBlock ER support for zero-fee, sub-second transactions
+- **Type Safety**: Full TypeScript support with strict types
+- **Wallet Integration**: Seamless connection to browser wallets
+- **Event Listening**: Real-time updates through event listeners
+- **Privacy Support**: Built-in zero-knowledge proof capabilities
 
 ## Installation
 
@@ -21,58 +31,73 @@ pnpm build
 
 ## Quick Start
 
-### Ethereum Setup
+### Ethereum with EIP-8004 Agent Manager
 
 ```typescript
-import { AmanaSDK } from '@amana/sdk';
+import { AgentManager } from '@amana/sdk';
 
-// Initialize for Ethereum
-const amana = new AmanaSDK({
-  chain: 'ethereum',
-  ethereum: {
-    rpcUrl: 'https://mainnet.infura.io/v3/YOUR_KEY',
-    contracts: {
-      amanaReserve: '0x...',
-      halalActivityIndex: '0x...',
-      circuitBreaker: '0x...',
-      amanaToken: '0x...',
-      amanaDao: '0x...',
-    }
+// Initialize with EIP-8004 agent infrastructure
+const agentManager = new AgentManager({
+  ethereumProvider,
+  solanaConnection,
+  magicBlockRouterUrl: 'https://devnet-router.magicblock.app',
+  contractAddresses: {
+    agentIdentityRegistry: '0x...',
+    agentReputationRegistry: '0x...',
+    agentValidationRegistry: '0x...',
+    amanaReserve: '0x...',
+    halalActivityIndex: '0x...'
   }
 });
 
-// Connect a wallet (browser)
-await amana.ethereum.connect(window.ethereum);
+// Register Sharia-compliant agent
+const registration = await agentManager.registerAgent({
+  uri: 'ipfs://QmXxx...',
+  shariaCompliant: true,
+  capabilities: ['capital-deployment', 'hai-calculation'],
+  endpoints: [
+    { id: 'api', type: 'http', url: 'https://api.example.com' }
+  ]
+});
 
-// Join the reserve
-const result = await amana.ethereum.joinReserve('1.0'); // 1 ETH
-console.log('Transaction:', result.hash);
+// Execute agent operation on Solana via MagicBlock ER
+const result = await agentManager.executeAgentOperation(
+  registration.ethereumAgentId,
+  {
+    type: 'deploy_capital',
+    requiresRealTime: true,
+    data: {
+      activityId: 'halal-agriculture-001',
+      amount: 1000000 // lamports
+    }
+  }
+);
 ```
 
-### Solana Setup
+### Solana with MagicBlock ER
 
 ```typescript
-import { AmanaSDK } from '@amana/sdk';
+import { AmanaSolanaClient } from '@amana/sdk';
 
-// Initialize for Solana
-const amana = new AmanaSDK({
-  chain: 'solana',
-  solana: {
-    rpcUrl: 'https://api.mainnet-beta.solana.com',
-    programIds: {
-      amanaReserve: new PublicKey('AMANareserve...'),
-      amanaHai: new PublicKey('AMANAhai...'),
-      amanaDao: new PublicKey('AMANAdao...'),
-    }
+const client = new AmanaSolanaClient({
+  rpcUrl: 'https://api.devnet.solana.com',
+  keypair: yourKeypair,
+  programIds: {
+    reserve: 'AMANareserve...',
+    hai: 'AMANAhai...'
+  },
+  magicBlock: {
+    routerUrl: 'https://devnet-router.magicblock.app',
+    enableER: true
   }
 });
 
-// Connect a wallet
-await amana.solana.connect(wallet.adapter);
-
-// Join the reserve
-const result = await amana.solana.joinReserve(1_000_000_000); // 1 SOL
-console.log('Signature:', result.hash);
+// Deploy capital on ER for zero-fee, sub-second finality
+await client.deployCapitalRealtime({
+  activityId,
+  amount: '1.0', // SOL
+  useER: true
+});
 ```
 
 ## Multi-Chain Abstraction
@@ -95,9 +120,59 @@ const stats = await chain.getReserveStats();
 
 ## Client Classes
 
+### AgentManager
+
+Main class for EIP-8004 compliant agent lifecycle management.
+
+```typescript
+class AgentManager {
+  constructor(config: AgentManagerConfig)
+
+  // Agent Registration (EIP-8004)
+  async registerAgent(params: {
+    uri: string;              // IPFS hash of agent metadata
+    shariaCompliant: boolean;
+    capabilities: string[];     // Array of capability strings
+    endpoints: AgentEndpoint[];
+  }): Promise<AgentRegistration>
+
+  // Agent Operations
+  async executeAgentOperation(
+    agentId: string,
+    operation: {
+      type: string;
+      requiresRealTime?: boolean;
+      data?: Record<string, unknown>;
+    }
+  ): Promise<OperationResult>
+
+  // Work Submission & Validation
+  async submitWork(params: {
+    agentId: string;
+    workId: string;
+    workUri: string;
+    validationAmount: string;
+  }): Promise<TransactionResult>
+
+  async submitFeedback(params: {
+    agentId: string;
+    feedback: {
+      score: number; // 1-5 rating
+      comment: string;
+      tag: string;  // feedback category
+    };
+  }): Promise<TransactionResult>
+
+  // Agent Information
+  async getAgent(agentId: string): Promise<AgentInfo>
+  async getAgentReputation(agentId: string): Promise<AgentReputation>
+  async getAgentWorkHistory(agentId: string): Promise<WorkRecord[]>
+}
+```
+
 ### AmanaSDK
 
-Main SDK entry point. Creates and manages chain-specific clients.
+Main SDK entry point for multi-chain interactions.
 
 ```typescript
 class AmanaSDK {
@@ -157,7 +232,7 @@ class AmanaEthereumClient {
 
 ### AmanaSolanaClient
 
-Solana-specific client using @solana/web3.js.
+Solana-specific client with MagicBlock ER support.
 
 ```typescript
 class AmanaSolanaClient {
@@ -170,7 +245,6 @@ class AmanaSolanaClient {
   getParticipantPDA(agent: PublicKey): [PublicKey, number]
   getActivityPDA(activityId: Buffer): [PublicKey, number]
   getHAIPDA(): [PublicKey, number]
-  getMetricsPDA(activityId: Buffer): [PublicKey, number]
 
   // Reserve Operations
   async initializeReserve(minCapitalContribution: number, maxParticipants: number, options?: TransactionOptions): Promise<TransactionResult>
@@ -178,12 +252,33 @@ class AmanaSolanaClient {
   async proposeActivity(activityId: Buffer, capitalRequired: number, description: string, options?: TransactionOptions): Promise<TransactionResult>
   async approveActivity(activityId: Buffer, options?: TransactionOptions): Promise<TransactionResult>
   async completeActivity(activityId: Buffer, outcome: number, options?: TransactionOptions): Promise<TransactionResult>
-  async depositCapital(amount: number, options?: TransactionOptions): Promise<TransactionResult>
-  async withdrawCapital(amount: number, options?: TransactionOptions): Promise<TransactionResult>
 
-  // HAI Operations
-  async trackActivity(activityId: Buffer, isCompliant: boolean, isAssetBacked: boolean, hasRealEconomicValue: boolean, validatorCount: number, positiveVotes: number, options?: TransactionOptions): Promise<TransactionResult>
-  async createSnapshot(options?: TransactionOptions): Promise<TransactionResult>
+  // MagicBlock ER Operations
+  async delegateReserve(params: {
+    reservePDA: PublicKey;
+    authority: Keypair;
+    validatorRegion?: string;
+  }): Promise<TransactionResult>
+
+  async deployCapitalRealtime(params: {
+    activityId: Buffer;
+    amount: number;
+    reservePDA: PublicKey;
+    activityPDA: PublicKey;
+    useER?: boolean;
+  }): Promise<TransactionResult>
+
+  async commitAndUndelegate(params: {
+    reservePDA: PublicKey;
+    activityPDA: PublicKey;
+    authority: Keypair;
+  }): Promise<TransactionResult>
+
+  // HAI Operations with VRF
+  async updateHAIWithVRF(params: {
+    activityId: Buffer;
+    dataSourceCount: number;
+  }): Promise<TransactionResult>
 
   // Account Data
   async getAccountData(account: PublicKey): Promise<Buffer>
@@ -192,34 +287,66 @@ class AmanaSolanaClient {
 
 ## Configuration
 
+### Agent Manager Configuration
+
+```typescript
+interface AgentManagerConfig {
+  // Ethereum
+  ethereumProvider?: any;
+  contractAddresses: {
+    agentIdentityRegistry: string;
+    agentReputationRegistry: string;
+    agentValidationRegistry: string;
+    amanaReserve?: string;
+    halalActivityIndex?: string;
+  };
+
+  // Solana
+  solanaConnection?: any;
+  magicBlockRouterUrl?: string;
+
+  // Options
+  autoSelectChain?: boolean;
+  enableRealTime?: boolean;
+}
+```
+
 ### Ethereum Configuration
 
 ```typescript
 interface EthereumConfig {
-  rpcUrl: string;                    // RPC endpoint URL
-  wsUrl?: string;                    // Optional WebSocket URL
-  chainId?: number;                  // Chain ID for validation
+  rpcUrl: string;
+  wsUrl?: string;
+  chainId?: number;
   contracts: {
-    amanaReserve: string;            // Required
-    halalActivityIndex?: string;     // Optional
-    circuitBreaker?: string;         // Optional
-    amanaToken?: string;             // Optional
-    amanaDao?: string;               // Optional
+    amanaReserve: string;
+    halalActivityIndex?: string;
+    circuitBreaker?: string;
+    amanaToken?: string;
+    amanaDao?: string;
+    agentIdentityRegistry?: string;
+    agentReputationRegistry?: string;
+    agentValidationRegistry?: string;
   };
 }
 ```
 
-### Solana Configuration
+### Solana Configuration with MagicBlock
 
 ```typescript
 interface SolanaConfig {
-  rpcUrl: string;                    // RPC endpoint URL
-  wsUrl?: string;                    // Optional WebSocket URL
-  commitment?: Commitment;           // 'processed' | 'confirmed' | 'finalized'
+  rpcUrl: string;
+  wsUrl?: string;
+  commitment?: 'processed' | 'confirmed' | 'finalized';
   programIds?: {
     amanaReserve?: PublicKey;
     amanaHai?: PublicKey;
     amanaDao?: PublicKey;
+  };
+  magicBlock?: {
+    routerUrl?: string;
+    enableER?: boolean;
+    defaultRegion?: 'Asia' | 'EU' | 'US' | 'TEE';
   };
 }
 ```
@@ -228,7 +355,7 @@ interface SolanaConfig {
 
 ```typescript
 interface AmanaConfig {
-  chain: ChainType;                  // 'ethereum' | 'solana'
+  chain: ChainType;
   ethereum?: EthereumConfig;
   solana?: SolanaConfig;
 }
@@ -236,16 +363,58 @@ interface AmanaConfig {
 
 ## Common Types
 
+### Agent Types (EIP-8004)
+
+```typescript
+interface AgentRegistration {
+  ethereumAgentId: string;
+  solanaAgentId?: string;
+  tokenId: string;
+  uri: string;
+  shariaCompliant: boolean;
+  capabilities: string[];
+  registeredAt: number;
+}
+
+interface AgentEndpoint {
+  id: string;
+  type: 'http' | 'websocket' | 'custom';
+  url: string;
+  headers?: Record<string, string>;
+}
+
+interface AgentInfo {
+  id: string;
+  uri: string;
+  shariaCompliant: boolean;
+  capabilities: string[];
+  endpoints: AgentEndpoint[];
+  reputationScore: number;
+  feedbackCount: number;
+  validationCount: number;
+}
+
+interface AgentReputation {
+  agentId: string;
+  totalScore: number;
+  feedbackCount: number;
+  positiveCount: number;
+  negativeCount: number;
+  tagScores: Map<string, number>;
+  lastUpdated: number;
+}
+```
+
 ### Participant
 
 ```typescript
 interface Participant {
-  agent: string;                     // Address/PublicKey
-  capitalContributed: bigint;        // Total contributed
-  profitShare: bigint;               // Accumulated profit
-  lossShare: bigint;                 // Accumulated loss
-  isActive: boolean;                 // Active status
-  joinedAt: number;                  // Join timestamp
+  agent: string;
+  capitalContributed: bigint;
+  profitShare: bigint;
+  lossShare: bigint;
+  isActive: boolean;
+  joinedAt: number;
 }
 ```
 
@@ -261,15 +430,15 @@ enum ActivityStatus {
 }
 
 interface Activity {
-  activityId: string;                // Unique identifier
-  initiator: string;                 // Creator address
-  capitalRequired: bigint;           // Capital needed
-  capitalDeployed: bigint;           // Capital deployed
-  status: ActivityStatus;            // Current state
-  createdAt: number;                 // Creation timestamp
-  completedAt: number;               // Completion timestamp
-  outcome: bigint;                   // Profit (+) or loss (-)
-  isValidated: boolean;              // Validation status
+  activityId: string;
+  initiator: string;
+  capitalRequired: bigint;
+  capitalDeployed: bigint;
+  status: ActivityStatus;
+  createdAt: number;
+  completedAt: number;
+  outcome: bigint;
+  isValidated: boolean;
 }
 ```
 
@@ -289,97 +458,96 @@ interface HAIMetrics {
 
 ```typescript
 interface TransactionResult {
-  hash: string;                      // Transaction hash/signature
+  hash: string;
   status: 'success' | 'failed';
-  gasUsed?: bigint;                  // Ethereum only
-  blockNumber?: bigint;              // Ethereum: block, Solana: slot
+  gasUsed?: bigint;
+  blockNumber?: bigint;
 }
 ```
 
-### Transaction Options
+## Agent Manager Operations
+
+### Registering Sharia-Compliant Agents
 
 ```typescript
-interface TransactionOptions {
-  gasLimit?: bigint;                 // Ethereum only
-  gasPrice?: bigint;                 // Ethereum only
-  value?: bigint;                    // Ethereum only
-}
-```
+import { AgentManager } from '@amana/sdk';
 
-## Usage Examples
-
-### Join Reserve and Propose Activity
-
-```typescript
-// Ethereum
-const amana = new AmanaSDK({ chain: 'ethereum', ethereum: config });
-await amana.ethereum.connect(signer);
-
-// Join with 1 ETH
-const joinResult = await amana.ethereum.joinReserve('1.0');
-console.log('Joined:', joinResult.hash);
-
-// Propose activity
-const activityId = generateActivityId();
-const proposeResult = await amana.ethereum.proposeActivity(activityId, '0.5');
-console.log('Proposed:', proposeResult.hash);
-```
-
-### Complete Activity with Profit
-
-```typescript
-// Complete with 0.1 ETH profit
-const profit = BigInt('100000000000000000'); // 0.1 ETH
-const result = await amana.ethereum.completeActivity(activityId, profit);
-console.log('Completed:', result.hash);
-```
-
-### Get HAI Score
-
-```typescript
-// Get current HAI metrics
-const metrics = await amana.ethereum.getHAIMetrics();
-console.log(`HAI Score: ${metrics.percentage}%`);
-console.log(`Compliant: ${metrics.compliantActivities}/${metrics.totalActivities}`);
-```
-
-### Event Listening
-
-```typescript
-// Listen for new activities
-amana.ethereum.onActivityProposed((activityId, initiator, capital) => {
-  console.log(`New activity ${activityId} by ${initiator} for ${capital} wei`);
-});
-
-// Listen for completions
-amana.ethereum.onActivityCompleted((activityId, outcome) => {
-  if (outcome > 0n) {
-    console.log(`Activity ${activityId} profit: ${outcome} wei`);
-  } else {
-    console.log(`Activity ${activityId} loss: ${-outcome} wei`);
+const agentManager = new AgentManager({
+  ethereumProvider: window.ethereum,
+  contractAddresses: {
+    agentIdentityRegistry: '0x...',
+    agentReputationRegistry: '0x...',
+    agentValidationRegistry: '0x...'
   }
 });
 
-// Clean up listeners
-amana.ethereum.removeAllListeners();
+// Register agent with compliance verification
+const registration = await agentManager.registerAgent({
+  uri: 'ipfs://QmXxx...',
+  shariaCompliant: true,
+  capabilities: [
+    'capital-deployment',
+    'risk-assessment',
+    'hai-calculation',
+    'sharia-validation'
+  ],
+  endpoints: [
+    { id: 'api', type: 'http', url: 'https://api.example.com' },
+    { id: 'websocket', type: 'websocket', url: 'wss://api.example.com' }
+  ]
+});
+
+console.log('Agent ID:', registration.ethereumAgentId);
 ```
 
-### Multi-Chain Pattern
+### Real-Time Operations via MagicBlock ER
 
 ```typescript
-// Abstract chain selection
-function getAmanaClient(chain: 'ethereum' | 'solana') {
-  const config = chain === 'ethereum' ? ethConfig : solConfig;
-  return new AmanaSDK({ chain, [chain]: config });
-}
+// Deploy capital with sub-second finality on ER
+const result = await agentManager.executeAgentOperation(
+  registration.ethereumAgentId,
+  {
+    type: 'deploy_capital',
+    requiresRealTime: true,
+    data: {
+      activityId: 'halal-agriculture-001',
+      amount: 1000000,
+      assetClass: 'halal'
+    }
+  }
+);
 
-// Use with any chain
-const amana = getAmanaClient('ethereum');
-const client = amana.isEthereum() ? amana.ethereum : amana.solana;
+console.log('Transaction:', result.hash);
+console.log('Finality:', result.finality); // < 1 second if using ER
+```
 
-// Same operations work for both
-await client.joinReserve(amount);
-await client.proposeActivity(id, capital);
+### Agent Validation and Reputation
+
+```typescript
+// Submit work for independent validation
+await agentManager.submitWork({
+  agentId: registration.ethereumAgentId,
+  workId: 'work-123',
+  workUri: 'ipfs://QmYyy...',
+  validationAmount: '0.1' // ETH stake
+});
+
+// Provide feedback on agent
+await agentManager.submitFeedback({
+  agentId: registration.ethereumAgentId,
+  feedback: {
+    score: 5,
+    comment: 'Excellent Sharia-compliant execution',
+    tag: 'reliability'
+  }
+});
+
+// Get agent reputation
+const reputation = await agentManager.getAgentReputation(
+  registration.ethereumAgentId
+);
+console.log('Score:', reputation.totalScore);
+console.log('Feedback:', reputation.feedbackCount);
 ```
 
 ## Error Handling
@@ -388,18 +556,22 @@ await client.proposeActivity(id, capital);
 import { AmanaError, ErrorCodes } from '@amana/sdk';
 
 try {
-  await amana.ethereum.joinReserve('0.01');
+  await agentManager.registerAgent({
+    uri: 'ipfs://...',
+    shariaCompliant: true,
+    capabilities: ['capital-deployment']
+  });
 } catch (error) {
   if (error instanceof AmanaError) {
     switch (error.code) {
-      case ErrorCodes.INSUFFICIENT_CONTRIBUTION:
-        console.log('Minimum contribution required');
+      case ErrorCodes.AGENT_ALREADY_EXISTS:
+        console.log('Agent already registered');
         break;
-      case ErrorCodes.ALREADY_PARTICIPANT:
-        console.log('Already a participant');
+      case ErrorCodes.INVALID_AGENT_URI:
+        console.log('Invalid IPFS URI');
         break;
-      case ErrorCodes.TRANSACTION_REJECTED:
-        console.log('Transaction rejected by user');
+      case ErrorCodes.NON_SHARIA_COMPLIANT:
+        console.log('Agent must be Sharia-compliant');
         break;
       default:
         console.log('Error:', error.message);
@@ -407,23 +579,6 @@ try {
   }
 }
 ```
-
-### Error Codes
-
-| Code | Description |
-|------|-------------|
-| `UNKNOWN` | Unknown error |
-| `NETWORK_ERROR` | Network connection error |
-| `INVALID_PARAMS` | Invalid parameters |
-| `NOT_PARTICIPANT` | Not a participant |
-| `ALREADY_PARTICIPANT` | Already a participant |
-| `INSUFFICIENT_CONTRIBUTION` | Below minimum contribution |
-| `INSUFFICIENT_BALANCE` | Insufficient balance |
-| `MAX_PARTICIPANTS` | Maximum participants reached |
-| `ACTIVITY_NOT_FOUND` | Activity not found |
-| `TRANSACTION_FAILED` | Transaction failed |
-| `TRANSACTION_REJECTED` | Transaction rejected by user |
-| `NOT_AUTHORIZED` | Not authorized for operation |
 
 ## Utility Functions
 
@@ -456,22 +611,6 @@ const bps = percentageToBasisPoints(42.5); // 4250
 console.log(DEFAULTS.ETHEREUM_MIN_CONTRIBUTION); // "100000000000000000"
 console.log(DEFAULTS.SOLANA_MIN_CONTRIBUTION);  // 100000000
 console.log(DEFAULTS.HAI_MAX_SCORE);            // 10000
-```
-
-## Factory Functions
-
-```typescript
-import { createEthereumSDK, createSolanaSDK } from '@amana/sdk';
-
-// Quick creation without full config
-const ethSDK = createEthereumSDK({
-  rpcUrl: 'https://mainnet.infura.io/v3/YOUR_KEY',
-  contracts: { amanaReserve: '0x...' }
-});
-
-const solSDK = createSolanaSDK({
-  rpcUrl: 'https://api.mainnet-beta.solana.com'
-});
 ```
 
 ## Building
@@ -512,9 +651,12 @@ packages/sdk/
 │   ├── common/
 │   │   └── types.ts       # Shared types
 │   ├── ethereum/
-│   │   └── client.ts      # Ethereum client
-│   └── solana/
-│       └── client.ts      # Solana client
+│   │   ├── client.ts      # Ethereum client
+│   │   └── agent.ts       # EIP-8004 agent manager
+│   ├── solana/
+│   │   ├── client.ts      # Solana client
+│   │   └── er.ts          # MagicBlock ER integration
+│   └── utils.ts               # Helper functions
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -525,6 +667,7 @@ packages/sdk/
 - **ethers** v6+ - Ethereum interaction
 - **@solana/web3.js** - Solana interaction
 - **@project-serum/anchor** - Solana program framework
+- **magicblock-sdk** - MagicBlock ER integration
 
 ## License
 

@@ -3,7 +3,11 @@
 Complete API documentation for the AMANA reserve system smart contracts and programs.
 
 ## Table of Contents
-- [Ethereum Contracts](#ethereum-contracts)
+- [EIP-8004 Agent Infrastructure](#eip-8004-agent-infrastructure)
+  - [AgentIdentityRegistry](#agentidentityregistry)
+  - [AgentReputationRegistry](#agentreputationregistry)
+  - [AgentValidationRegistry](#agentvalidationregistry)
+- [Ethereum Core Contracts](#ethereum-core-contracts)
   - [AmanaReserve](#amanareserve)
   - [AmanaDAO](#amanadao)
   - [CircuitBreaker](#circuitbreaker)
@@ -13,7 +17,8 @@ Complete API documentation for the AMANA reserve system smart contracts and prog
   - [RiskSharing](#risksharing)
   - [ActivityValidator](#activityvalidator)
 - [Solana Programs](#solana-programs)
-  - [amana-reserve](#amana-reserve-program)
+  - [amana-reserve (Base Layer)](#amana-reserve-program)
+  - [amana-reserve (MagicBlock ER)](#amana-reserve-magicblock-er)
   - [amana-dao](#amana-dao-program)
   - [amana-hai](#amana-hai-program)
 - [SDK API](#sdk-api)
@@ -22,51 +27,413 @@ Complete API documentation for the AMANA reserve system smart contracts and prog
 
 ---
 
-## AmanaReserve
+## EIP-8004 Agent Infrastructure
+
+The AMANA system implements **EIP-8004 Trustless Agent Infrastructure** on Ethereum for decentralized agent management with portable identities and reputation tracking.
+
+### AgentIdentityRegistry
+
+ERC-721 based registry for agent identity management.
+
+#### State Variables
+
+##### `name`
+```solidity
+string public constant name = "AMANA Agent Identity"
+```
+ERC-721 token name.
+
+##### `symbol`
+```solidity
+string public constant symbol = "AGENT"
+```
+ERC-721 token symbol.
+
+##### `nextAgentId`
+```solidity
+uint256 public nextAgentId
+```
+Counter for next agent ID to be minted.
+
+#### Structs
+
+##### `Agent`
+```solidity
+struct Agent {
+    uint256 agentId;           // Unique agent ID (ERC-721 token ID)
+    address owner;             // Owner of the agent NFT
+    string metadataURI;        // IPFS hash of agent metadata
+    uint256 organizationId;    // Organization scope
+    bool isActive;             // Active status
+    uint256 createdAt;         // Creation timestamp
+}
+```
+
+##### `Endpoint`
+```solidity
+struct Endpoint {
+    string id;                 // Endpoint identifier
+    EndpointType endpointType; // HTTP or webhook
+    string url;                // Endpoint URL
+}
+```
+
+##### `EndpointType`
+```solidity
+enum EndpointType {
+    HTTP,
+    Webhook
+}
+```
+
+#### Events
+
+##### `AgentRegistered`
+```solidity
+event AgentRegistered(
+    uint256 indexed agentId,
+    address indexed owner,
+    string metadataURI,
+    uint256 organizationId
+)
+```
+
+##### `AgentTransferred`
+```solidity
+event AgentTransferred(
+    uint256 indexed agentId,
+    address indexed from,
+    address indexed to
+)
+```
+
+##### `EndpointAdded`
+```solidity
+event EndpointAdded(
+    uint256 indexed agentId,
+    string endpointId,
+    EndpointType endpointType,
+    string url
+)
+```
+
+#### Functions
+
+##### `registerAgent`
+```solidity
+function registerAgent(
+    string calldata metadataURI,
+    uint256 organizationId,
+    Endpoint[] calldata endpoints
+) external returns (uint256 agentId)
+```
+Register a new agent with metadata and endpoints.
+
+**Requirements:**
+- Valid metadata URI (IPFS hash)
+- Valid organization ID
+
+##### `updateMetadata`
+```solidity
+function updateMetadata(
+    uint256 agentId,
+    string calldata metadataURI
+) external onlyAgentOwner(agentId)
+```
+Update agent metadata.
+
+##### `addEndpoint`
+```solidity
+function addEndpoint(
+    uint256 agentId,
+    string calldata id,
+    EndpointType endpointType,
+    string calldata url
+) external onlyAgentOwner(agentId)
+```
+Add a new endpoint to the agent.
+
+##### `removeEndpoint`
+```solidity
+function removeEndpoint(
+    uint256 agentId,
+    string calldata id
+) external onlyAgentOwner(agentId)
+```
+Remove an endpoint from the agent.
+
+##### `getAgent`
+```solidity
+function getAgent(uint256 agentId) external view returns (Agent memory)
+```
+Get agent details by ID.
+
+##### `getEndpoints`
+```solidity
+function getEndpoints(uint256 agentId) external view returns (Endpoint[] memory)
+```
+Get all endpoints for an agent.
+
+##### `getAgentsByOwner`
+```solidity
+function getAgentsByOwner(address owner) external view returns (uint256[] memory)
+```
+Get all agent IDs owned by an address.
+
+---
+
+### AgentReputationRegistry
+
+Stake-weighted feedback and reputation tracking for agents.
+
+#### State Variables
+
+##### `DECAY_PERIOD`
+```solidity
+uint256 public constant DECAY_PERIOD = 90 days
+```
+Period after which feedback weight decays.
+
+##### `MIN_STAKE`
+```solidity
+uint256 public constant MIN_STAKE = 0.01 ether
+```
+Minimum stake required to submit feedback.
+
+#### Structs
+
+##### `Feedback`
+```solidity
+struct Feedback {
+    uint256 agentId;           // Agent being rated
+    address submitter;         // Feedback submitter
+    uint8 score;               // 1-5 rating
+    string tag;                // Category tag
+    uint256 stake;             // Stake weight
+    uint256 timestamp;         // Submission time
+    string comment;            // Optional comment
+}
+```
+
+#### Events
+
+##### `FeedbackSubmitted`
+```solidity
+event FeedbackSubmitted(
+    uint256 indexed agentId,
+    address indexed submitter,
+    uint8 score,
+    string tag,
+    uint256 stake
+)
+```
+
+##### `ReputationUpdated`
+```solidity
+event ReputationUpdated(
+    uint256 indexed agentId,
+    uint256 newScore,
+    uint256 tagScore
+)
+```
+
+#### Functions
+
+##### `submitFeedback`
+```solidity
+function submitFeedback(
+    uint256 agentId,
+    uint8 score,
+    string calldata tag,
+    string calldata comment
+) external payable
+```
+Submit feedback with stake weight.
+
+**Requirements:**
+- `msg.value >= MIN_STAKE`
+- Score must be 1-5
+- Agent must exist
+
+##### `getReputation`
+```solidity
+function getReputation(uint256 agentId) external view returns (
+    uint256 overallScore,
+    uint256 feedbackCount,
+    string[] memory tags,
+    uint256[] memory tagScores
+)
+```
+Get comprehensive reputation data.
+
+##### `getFeedback`
+```solidity
+function getFeedback(uint256 agentId) external view returns (Feedback[] memory)
+```
+Get all feedback for an agent.
+
+##### `decayFeedback`
+```solidity
+function decayFeedback(uint256 agentId) external
+```
+Manually trigger feedback weight decay.
+
+---
+
+### AgentValidationRegistry
+
+Multi-validator work verification system with staking.
+
+#### State Variables
+
+##### `VALIDATION_PERIOD`
+```solidity
+uint256 public constant VALIDATION_PERIOD = 7 days
+```
+Time window for validation.
+
+##### `CHALLENGE_PERIOD`
+```solidity
+uint256 public constant CHALLENGE_PERIOD = 3 days
+```
+Time window to challenge validation.
+
+##### `MIN_VALIDATORS`
+```solidity
+uint256 public constant MIN_VALIDATORS = 3
+```
+Minimum validators required.
+
+#### Structs
+
+##### `WorkValidation`
+```solidity
+struct WorkValidation {
+    bytes32 workId;                // Unique work identifier
+    uint256 agentId;               // Agent submitting work
+    uint256 validationAmount;      // Stake for validation
+    address[] validators;          // Assigned validators
+    mapping(address => bool) approvals; // Validator approvals
+    uint256 approvalCount;         // Number of approvals
+    bool isValidated;              // Final validation status
+    uint256 submittedAt;           // Submission timestamp
+    string workURI;                // IPFS hash of work data
+}
+```
+
+#### Events
+
+##### `WorkSubmitted`
+```solidity
+event WorkSubmitted(
+    bytes32 indexed workId,
+    uint256 indexed agentId,
+    string workURI,
+    uint256 validationAmount
+)
+```
+
+##### `ValidatorApproved`
+```solidity
+event ValidatorApproved(
+    bytes32 indexed workId,
+    address indexed validator,
+    bool approved
+)
+```
+
+##### `WorkValidated`
+```solidity
+event WorkValidated(
+    bytes32 indexed workId,
+    uint256 indexed agentId,
+    bool isValidated
+)
+```
+
+#### Functions
+
+##### `submitWork`
+```solidity
+function submitWork(
+    bytes32 workId,
+    string calldata workURI,
+    uint256 validationAmount
+) external payable
+```
+Submit work for validation with stake.
+
+**Requirements:**
+- `msg.value >= validationAmount`
+- Agent must be registered
+
+##### `validateWork`
+```solidity
+function validateWork(
+    bytes32 workId,
+    bool approved
+) external onlyAssignedValidator(workId)
+```
+Validate submitted work.
+
+##### `challengeValidation`
+```solidity
+function challengeValidation(
+    bytes32 workId,
+    string calldata reason
+) external payable
+```
+Challenge a validation with stake.
+
+##### `getValidation`
+```solidity
+function getValidation(bytes32 workId) external view returns (WorkValidation memory)
+```
+Get validation details.
+
+---
+
+## Ethereum Core Contracts
+
+### AmanaReserve
 
 Main contract for managing the reserve system, participants, and economic activities.
 
-### State Variables
+#### State Variables
 
-#### `VERSION`
+##### `VERSION`
 ```solidity
 string public constant VERSION = "1.0.0"
 ```
 Contract version identifier.
 
-#### `totalCapital`
+##### `totalCapital`
 ```solidity
 uint256 public totalCapital
 ```
 Total capital available in the reserve.
 
-#### `participantCount`
+##### `participantCount`
 ```solidity
 uint256 public participantCount
 ```
 Number of active participants in the reserve.
 
-#### `minCapitalContribution`
+##### `minCapitalContribution`
 ```solidity
 uint256 public minCapitalContribution
 ```
 Minimum capital required to join the reserve.
 
-#### `MAX_PARTICIPANTS`
+##### `MAX_PARTICIPANTS`
 ```solidity
 uint256 public constant MAX_PARTICIPANTS = 50
 ```
 Maximum participants for gas-efficient iteration.
 
-#### `isInitialized`
-```solidity
-bool public isInitialized
-```
-Flag indicating if the reserve has been initialized.
+#### Structs
 
-### Structs
-
-#### `Participant`
+##### `Participant`
 ```solidity
 struct Participant {
     address agent;              // Participant's address
@@ -78,7 +445,7 @@ struct Participant {
 }
 ```
 
-#### `Activity`
+##### `Activity`
 ```solidity
 struct Activity {
     bytes32 activityId;         // Unique activity identifier
@@ -93,7 +460,7 @@ struct Activity {
 }
 ```
 
-#### `ActivityStatus` Enum
+##### `ActivityStatus` Enum
 ```solidity
 enum ActivityStatus {
     Proposed,   // Activity proposed but not approved
@@ -104,42 +471,37 @@ enum ActivityStatus {
 }
 ```
 
-### Events
+#### Events
 
-#### `ParticipantJoined`
+##### `ParticipantJoined`
 ```solidity
 event ParticipantJoined(address indexed agent, uint256 capitalContributed)
 ```
 
-#### `ActivityProposed`
+##### `ActivityProposed`
 ```solidity
 event ActivityProposed(bytes32 indexed activityId, address indexed initiator, uint256 capitalRequired)
 ```
 
-#### `ActivityCompleted`
+##### `ActivityCompleted`
 ```solidity
 event ActivityCompleted(bytes32 indexed activityId, int256 outcome)
 ```
 
-#### `ProfitDistributed`
+##### `ProfitDistributed`
 ```solidity
 event ProfitDistributed(uint256 totalProfit, uint256 participantCount)
 ```
 
-#### `ProfitPaid`
-```solidity
-event ProfitPaid(address indexed participant, uint256 amount)
-```
+#### Functions
 
-### Functions
-
-#### `initialize`
+##### `initialize`
 ```solidity
 function initialize(uint256 _minCapitalContribution) external onlyAdmin notInitialized
 ```
 Initialize the reserve system with minimum capital requirement.
 
-#### `joinReserve`
+##### `joinReserve`
 ```solidity
 function joinReserve() external payable
 ```
@@ -150,59 +512,35 @@ Join the reserve as a participant.
 - Cannot already be a participant
 - Must not exceed MAX_PARTICIPANTS
 
-#### `proposeActivity`
+##### `proposeActivity`
 ```solidity
 function proposeActivity(bytes32 activityId, uint256 capitalRequired) external onlyParticipant
 ```
 Propose a new economic activity.
 
-#### `completeActivity`
+##### `completeActivity`
 ```solidity
 function completeActivity(bytes32 activityId, int256 outcome) external onlyParticipant
 ```
 Complete an activity and record outcome with automatic profit/loss distribution.
 
-#### `distributeProfit`
-```solidity
-function distributeProfit(uint256 profit) internal
-```
-Distributes profit proportionally to each participant's capital contribution following Mudarabah principles.
-
-#### `distributeLoss`
-```solidity
-function distributeLoss(uint256 loss) internal
-```
-Distributes loss proportionally among participants following Musharakah principles.
-
-#### `getWithdrawableBalance`
-```solidity
-function getWithdrawableBalance(address participantAddr) external view returns (uint256)
-```
-Get a participant's total withdrawable balance (capital + accumulated profits).
-
 ---
 
-## AmanaDAO
+### AmanaDAO
 
 Governance contract with Sharia Advisory Board integration.
 
-### State Variables
+#### State Variables
 
-#### `SHARIA_BOARD_ROLE`
+##### `SHARIA_BOARD_ROLE`
 ```solidity
 bytes32 public constant SHARIA_BOARD_ROLE = keccak256("SHARIA_BOARD_ROLE")
 ```
 Role identifier for Sharia Advisory Board members.
 
-#### `EMERGENCY_COUNCIL_ROLE`
-```solidity
-bytes32 public constant EMERGENCY_COUNCIL_ROLE = keccak256("EMERGENCY_COUNCIL_ROLE")
-```
-Role for emergency council members.
+#### Structs
 
-### Structs
-
-#### `ShariaReview`
+##### `ShariaReview`
 ```solidity
 struct ShariaReview {
     bool reviewed;                // Whether the proposal has been reviewed
@@ -214,26 +552,21 @@ struct ShariaReview {
 }
 ```
 
-### Events
+#### Events
 
-#### `ShariaReviewInitiated`
+##### `ShariaReviewInitiated`
 ```solidity
 event ShariaReviewInitiated(uint256 indexed proposalId, uint256 deadline)
 ```
 
-#### `ShariaBoardVoted`
-```solidity
-event ShariaBoardVoted(uint256 indexed proposalId, address indexed boardMember, bool approve)
-```
-
-#### `ShariaBoardVeto`
+##### `ShariaBoardVeto`
 ```solidity
 event ShariaBoardVeto(uint256 indexed proposalId, address indexed boardMember, string reasoning)
 ```
 
-### Functions
+#### Functions
 
-#### `proposeWithShariaReview`
+##### `proposeWithShariaReview`
 ```solidity
 function proposeWithShariaReview(
     address[] memory targets,
@@ -245,7 +578,7 @@ function proposeWithShariaReview(
 ```
 Create a proposal with optional Sharia review requirement.
 
-#### `shariaBoardReview`
+##### `shariaBoardReview`
 ```solidity
 function shariaBoardReview(
     uint256 proposalId,
@@ -255,41 +588,35 @@ function shariaBoardReview(
 ```
 Sharia board member votes on proposal compliance.
 
-#### `vetoPauseAction`
+##### `vetoPauseAction`
 ```solidity
 function vetoPauseAction(uint256 proposalId) external onlyRole(SHARIA_BOARD_ROLE)
 ```
 Veto a proposal that affects Sharia principles.
 
-#### `isShariaCompliant`
-```solidity
-function isShariaCompliant(uint256 proposalId) public view returns (bool)
-```
-Check if a proposal meets Sharia compliance requirements.
-
 ---
 
-## CircuitBreaker
+### CircuitBreaker
 
 Emergency stop mechanism with role-based access control.
 
-### State Variables
+#### State Variables
 
-#### `status`
+##### `status`
 ```solidity
 CircuitBreakerStatus public status
 ```
 Current system status (Normal, Paused, Locked).
 
-#### `autoUnlockDuration`
+##### `autoUnlockDuration`
 ```solidity
 uint256 public autoUnlockDuration
 ```
 Duration for automatic unlock (0 = manual unlock required).
 
-### Enums
+#### Enums
 
-#### `CircuitBreakerStatus`
+##### `CircuitBreakerStatus`
 ```solidity
 enum CircuitBreakerStatus {
     Normal,     // All operations normal
@@ -298,150 +625,83 @@ enum CircuitBreakerStatus {
 }
 ```
 
-### Structs
+#### Functions
 
-#### `PauseAction`
-```solidity
-struct PauseAction {
-    address initiator;        // Who initiated the pause
-    address targetContract;   // Contract affected (address(0) for global)
-    bytes4 functionSelector;  // Function affected (bytes4(0) for all)
-    bool isPause;             // true = pause, false = unpause
-    CircuitBreakerStatus previousStatus; // Previous status
-    uint256 timestamp;        // When the action occurred
-    string reason;            // Reason for the action
-}
-```
-
-### Functions
-
-#### `pauseSystem`
+##### `pauseSystem`
 ```solidity
 function pauseSystem(string calldata reason) external onlyRole(PAUSER_ROLE)
 ```
 Pause the entire system with emergency stop.
 
-#### `unpauseSystem`
+##### `unpauseSystem`
 ```solidity
 function unpauseSystem() external
 ```
 Unpause the system (requires ADMIN_ROLE or SHARIA_BOARD_ROLE).
 
-#### `lockSystem`
+##### `lockSystem`
 ```solidity
 function lockSystem(string calldata reason) external onlyRole(ADMIN_ROLE)
 ```
 Lock the system requiring special unlock procedure.
 
-#### `vetoPauseAction`
-```solidity
-function vetoPauseAction(uint256 actionId) external onlyRole(SHARIA_BOARD_ROLE)
-```
-Sharia board can veto pause actions.
-
-#### `pauseContract`
-```solidity
-function pauseContract(address targetContract) external onlyRole(PAUSER_ROLE)
-```
-Pause a specific contract.
-
-#### `pauseFunction`
-```solidity
-function pauseFunction(bytes4 functionSelector) external onlyRole(PAUSER_ROLE)
-```
-Pause a specific function across all contracts.
-
 ---
 
-## AmanaToken
+### AmanaToken
 
 ERC20 governance token with voting and vesting functionality.
 
-### State Variables
+#### State Variables
 
-#### `MAX_SUPPLY`
+##### `MAX_SUPPLY`
 ```solidity
 uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10**18
 ```
 Maximum token supply (1 billion tokens).
 
-#### `MIN_VESTING_PERIOD`
-```solidity
-uint256 public constant MIN_VESTING_PERIOD = 90 days
-```
-Minimum vesting period for governance rewards.
+#### Functions
 
-### Functions
-
-#### `mint`
+##### `mint`
 ```solidity
 function mint(address to, uint256 amount) external onlyOwner
 ```
 Mint new tokens (only callable by DAO/owner).
 
-**Requirements:**
-- Total supply + amount ≤ MAX_SUPPLY
-- Valid recipient address
-
-#### `burn`
+##### `burn`
 ```solidity
 function burn(uint256 amount) external
 ```
 Burn tokens from caller's balance.
 
-#### `setVesting`
+##### `setVesting`
 ```solidity
 function setVesting(address account, uint256 endTime) external onlyOwner
 ```
 Set vesting period for an address.
 
-#### `hasVotingPower`
-```solidity
-function hasVotingPower(address account) external view returns (bool)
-```
-Check if voting power is available (considering vesting).
-
-#### `addCustodian`
-```solidity
-function addCustodian(address custodian) external onlyOwner
-```
-Add a trusted custodian (e.g., exchanges).
-
-#### `getVestingEnd`
-```solidity
-function getVestingEnd(address account) external view returns (uint256)
-```
-Get the vesting end time for an address.
-
 ---
 
-## HalalActivityIndex
+### HalalActivityIndex
 
 Tracks the Halal Activity Index (HAI) for Sharia compliance measurement.
 
-### State Variables
+#### State Variables
 
-#### `MAX_SCORE`
+##### `MAX_SCORE`
 ```solidity
 uint256 public constant MAX_SCORE = 10000
 ```
 Maximum HAI score (100.00%).
 
-#### `currentScore`
+##### `currentScore`
 ```solidity
 uint256 public currentScore
 ```
 Current HAI score (0-10000).
 
-#### `complianceWeight`
-```solidity
-uint256 public complianceWeight = 4000
-```
-Weight for compliance component (40%).
+#### Structs
 
-### Structs
-
-#### `HAISnapshot`
+##### `HAISnapshot`
 ```solidity
 struct HAISnapshot {
     uint256 score;              // Current HAI score (0-10000)
@@ -452,22 +712,9 @@ struct HAISnapshot {
 }
 ```
 
-#### `ActivityMetrics`
-```solidity
-struct ActivityMetrics {
-    bytes32 activityId;
-    bool isCompliant;           // Sharia compliance status
-    bool isAssetBacked;         // Asset backing status
-    bool hasRealEconomicValue;  // Economic value status
-    uint256 validatorCount;     // Number of validators who reviewed
-    uint256 positiveVotes;      // Number of positive validation votes
-    uint256 timestamp;          // Activity timestamp
-}
-```
+#### Functions
 
-### Functions
-
-#### `trackActivity`
+##### `trackActivity`
 ```solidity
 function trackActivity(
     bytes32 activityId,
@@ -480,181 +727,17 @@ function trackActivity(
 ```
 Track an activity for HAI calculation.
 
-#### `calculateScore`
+##### `calculateScore`
 ```solidity
 function calculateScore() public returns (uint256 score)
 ```
 Calculate the HAI score based on tracked activities.
 
-#### `createSnapshot`
-```solidity
-function createSnapshot() external onlyOwner
-```
-Create a snapshot of current HAI metrics.
-
-#### `getHAIPercentage`
-```solidity
-function getHAIPercentage() external view returns (uint256 percentage)
-```
-Get HAI score as a percentage (0-100).
-
-#### `getHAIMetrics`
-```solidity
-function getHAIMetrics() external view returns (
-    uint256 score,
-    uint256 percentage,
-    uint256 total,
-    uint256 compliant,
-    uint256 complianceRate
-)
-```
-Get detailed HAI metrics.
-
-#### `updateWeights`
-```solidity
-function updateWeights(
-    uint256 _complianceWeight,
-    uint256 _assetBackingWeight,
-    uint256 _economicValueWeight,
-    uint256 _validatorParticipationWeight
-) external onlyOwner
-```
-Update HAI calculation weights (must sum to 10000).
-
----
-
-## CapitalPool
-
-Manages capital pooling for specific economic purposes.
-
-### Structs
-
-#### `Pool`
-```solidity
-struct Pool {
-    bytes32 poolId;           // Unique pool identifier
-    string purpose;           // Economic purpose description
-    uint256 targetCapital;    // Target capital to raise
-    uint256 currentCapital;   // Current capital in pool
-    uint256 participantCount; // Number of participants
-    bool isActive;            // Pool activation status
-    uint256 createdAt;        // Creation timestamp
-}
-```
-
-### Functions
-
-#### `createPool`
-```solidity
-function createPool(bytes32 poolId, string memory purpose, uint256 targetCapital) external
-```
-Create a new capital pool.
-
-#### `contributeToPool`
-```solidity
-function contributeToPool(bytes32 poolId) external payable
-```
-Contribute capital to a pool. Pool activates automatically when target is reached.
-
----
-
-## RiskSharing
-
-Implements Sharia-compliant risk sharing mechanism.
-
-### Structs
-
-#### `RiskPool`
-```solidity
-struct RiskPool {
-    bytes32 poolId;           // Unique identifier
-    uint256 totalCapital;     // Total capital in pool
-    uint256 totalProfit;      // Accumulated profit
-    uint256 totalLoss;        // Accumulated loss
-    uint256 participantCount; // Number of participants
-    bool isActive;            // Pool status
-}
-```
-
-### Functions
-
-#### `createRiskPool`
-```solidity
-function createRiskPool(bytes32 poolId) external
-```
-Create a new risk pool.
-
-#### `shareProfit`
-```solidity
-function shareProfit(bytes32 poolId, uint256 totalProfit) external
-```
-Distribute profit among participants proportionally.
-
-#### `shareLoss`
-```solidity
-function shareLoss(bytes32 poolId, uint256 totalLoss) external
-```
-Distribute loss among participants proportionally.
-
----
-
-## ActivityValidator
-
-Validates economic activities for Sharia compliance.
-
-### Structs
-
-#### `ValidationRecord`
-```solidity
-struct ValidationRecord {
-    bytes32 activityId;
-    address validator;
-    bool isValid;
-    bool isShariaCompliant;
-    bool isAssetBacked;
-    bool hasRealEconomicValue;
-    string validationNotes;
-    uint256 validatedAt;
-}
-```
-
-### Functions
-
-#### `submitActivity`
-```solidity
-function submitActivity(
-    bytes32 activityId,
-    string memory description,
-    string memory activityType,
-    uint256 capitalRequired
-) external
-```
-Submit an economic activity for validation.
-
-#### `validateActivity`
-```solidity
-function validateActivity(
-    bytes32 activityId,
-    bool isValid,
-    bool isShariaCompliant,
-    bool isAssetBacked,
-    bool hasRealEconomicValue,
-    string memory notes
-) external onlyValidator
-```
-Validate an economic activity.
-
-#### `meetsShariaCompliance`
-```solidity
-function meetsShariaCompliance(bytes32 activityId) external view returns (bool)
-```
-Check if activity meets all compliance criteria.
-
 ---
 
 ## Solana Programs
 
-### amana-reserve
+### amana-reserve (Base Layer)
 
 Core reserve program managing participants, capital, and activities on Solana.
 
@@ -668,45 +751,14 @@ pub struct Reserve {
     pub max_participants: u64,
     pub total_capital: u64,
     pub participant_count: u64,
+    pub delegate: Option<Pubkey>,     // Delegate for ER
+    pub delegate_authority: Option<Pubkey>,
     pub is_initialized: bool,
     pub bump: u8,
 }
 ```
 
 **PDA:** `["reserve"]`
-
-##### Participant Account
-```rust
-pub struct Participant {
-    pub agent: Pubkey,
-    pub capital_contributed: u64,
-    pub profit_share: u64,
-    pub loss_share: u64,
-    pub is_active: bool,
-    pub joined_at: i64,
-    pub bump: u8,
-}
-```
-
-**PDA:** `["participant", agent_pubkey.as_ref()]`
-
-##### Activity Account
-```rust
-pub struct Activity {
-    pub activity_id: [u8; 32],
-    pub initiator: Pubkey,
-    pub capital_required: u64,
-    pub capital_deployed: u64,
-    pub status: ActivityStatus,
-    pub created_at: i64,
-    pub completed_at: i64,
-    pub outcome: i64,
-    pub is_validated: bool,
-    pub bump: u8,
-}
-```
-
-**PDA:** `["activity", activity_id.as_ref()]`
 
 #### Instructions
 
@@ -715,44 +767,57 @@ pub struct Activity {
 | `initialize` | min_capital_contribution, max_participants | Initialize reserve |
 | `join_reserve` | amount | Join with capital |
 | `propose_activity` | activity_id, capital_required | Propose activity |
-| `approve_activity` | - | Approve activity |
+| `approve_activity` | activity_id | Approve activity |
 | `complete_activity` | outcome | Record profit/loss |
-| `deposit_capital` | amount | Add more capital |
-| `withdraw_capital` | amount | Withdraw capital |
+| `delegate_reserve` | authority | Delegate control to ER |
+
+---
+
+### amana-reserve (MagicBlock ER)
+
+Real-time operations on Ephemeral Rollups with zero fees.
+
+#### Accounts
+
+##### Delegate Account
+```rust
+pub struct DelegateReserve {
+    pub base_reserve: Pubkey,     // Original reserve PDA
+    pub capital_deployed: u64,
+    pub activity_count: u64,
+    pub created_at: i64,
+    pub bump: u8,
+}
+```
+
+**PDA:** `["delegate", base_reserve.key().as_ref()]`
+
+#### Instructions
+
+| Instruction | Parameters | Description |
+|-------------|------------|-------------|
+| `deploy_capital_realtime` | activity_id, amount | Deploy capital with zero fees |
+| `execute_activity_realtime` | activity_id, instruction_data | Execute activity instruction |
+| `track_hai_realtime` | activity_id, metrics | Track HAI in real-time |
+| `commit_and_undelegate` | - | Commit state to base layer |
 
 #### Events
 
 ```rust
-pub struct ParticipantJoinedEvent {
-    pub agent: Pubkey,
-    pub capital_contributed: u64,
+pub struct CapitalDeployedEvent {
+    pub activity_id: [u8; 32],
+    pub amount: u64,
+    pub executed_at: i64,
 }
 
-pub struct ActivityProposedEvent {
+pub struct HAIUpdatedEvent {
     pub activity_id: [u8; 32],
-    pub initiator: Pubkey,
-    pub capital_required: u64,
-}
-
-pub struct ActivityCompletedEvent {
-    pub activity_id: [u8; 32],
-    pub outcome: i64,
+    pub new_score: u16,
+    pub vrf_proof: [u8; 64],
 }
 ```
 
-#### Errors
-
-| Error Code | Description |
-|------------|-------------|
-| `InsufficientContribution` | Below minimum capital |
-| `MaxParticipantsReached` | At capacity limit |
-| `InvalidCapitalAmount` | Invalid amount |
-| `InvalidActivityStatus` | Wrong state for operation |
-| `MathOverflow` | Arithmetic overflow |
-| `InsufficientBalance` | Not enough balance |
-| `InsufficientLiquidity` | Reserve lacks funds |
-| `InactiveParticipant` | Not an active participant |
-| `Unauthorized` | Not authorized |
+---
 
 ### amana-dao
 
@@ -776,73 +841,17 @@ pub struct Dao {
 
 **PDA:** `["dao"]`
 
-##### Proposal Account
-```rust
-pub struct Proposal {
-    pub proposal_id: u64,
-    pub proposer: Pubkey,
-    pub target_account: Pubkey,
-    pub amount: u64,
-    pub affects_sharia: bool,
-    pub status: ProposalStatus,
-    pub created_at: i64,
-    pub voting_starts_at: i64,
-    pub voting_ends_at: i64,
-    pub for_votes: u64,
-    pub against_votes: u64,
-    pub abstain_votes: u64,
-    pub sharia_approved: bool,
-    pub bump: u8,
-}
-```
-
-**PDA:** `["proposal", proposal_id.to_le_bytes().as_ref()]`
-
-##### Sharia Board Account
-```rust
-pub struct ShariaBoard {
-    pub admin: Pubkey,
-    pub member_count: u32,
-    pub bump: u8,
-}
-```
-
-**PDA:** `["sharia_board"]`
-
 #### Instructions
 
 | Instruction | Parameters | Description |
 |-------------|------------|-------------|
 | `initialize` | voting_delay, voting_period, quorum_percentage | Initialize DAO |
-| `init_sharia_board` | - | Initialize Sharia board |
 | `create_proposal` | target_account, amount, affects_sharia | Create proposal |
 | `vote` | proposal_id, vote, weight | Cast vote |
 | `sharia_review` | proposal_id, approved | Sharia board review |
-| `execute_proposal` | - | Execute proposal |
-| `cancel_proposal` | - | Cancel proposal |
+| `execute_proposal` | proposal_id | Execute proposal |
 
-#### Events
-
-```rust
-pub struct ProposalCreatedEvent {
-    pub proposal_id: u64,
-    pub proposer: Pubkey,
-    pub affects_sharia: bool,
-}
-
-pub struct VoteCastEvent {
-    pub proposal_id: u64,
-    pub voter: Pubkey,
-    pub vote: u8,
-    pub weight: u64,
-}
-
-pub struct ShariaReviewEvent {
-    pub proposal_id: u64,
-    pub board_member: Pubkey,
-    pub approved: bool,
-}
-```
+---
 
 ### amana-hai
 
@@ -857,64 +866,51 @@ pub struct Hai {
     pub current_score: u16,        // 0-10000 (0-100%)
     pub total_activities: u64,
     pub compliant_activities: u64,
-    pub asset_backed_activities: u64,
-    pub economic_value_activities: u64,
-    pub snapshot_count: u64,
-    // Weights (in basis points)
-    pub compliance_weight: u16,
-    pub asset_backing_weight: u16,
-    pub economic_value_weight: u16,
-    pub validator_participation_weight: u16,
+    pub vrf_enabled: bool,
     pub bump: u8,
 }
 ```
 
 **PDA:** `["hai"]`
 
-##### Activity Metrics Account
-```rust
-pub struct ActivityMetrics {
-    pub activity_id: [u8; 32],
-    pub is_compliant: bool,
-    pub is_asset_backed: bool,
-    pub has_real_economic_value: bool,
-    pub validator_count: u32,
-    pub positive_votes: u32,
-    pub timestamp: i64,
-    pub bump: u8,
-}
-```
-
-**PDA:** `["metrics", activity_id.as_ref()]`
-
 #### Instructions
 
 | Instruction | Parameters | Description |
 |-------------|------------|-------------|
 | `initialize` | initial_score | Initialize HAI tracker |
-| `track_activity` | activity_id, is_compliant, is_asset_backed, has_real_economic_value, validator_count, positive_votes | Track activity |
+| `track_activity` | activity_id, metrics | Track activity |
 | `create_snapshot` | - | Create metrics snapshot |
-| `update_weights` | compliance_weight, asset_backing_weight, economic_value_weight, validator_participation_weight | Update weights |
-
-#### Events
-
-```rust
-pub struct ActivityTrackedEvent {
-    pub activity_id: [u8; 32],
-    pub is_compliant: bool,
-    pub is_asset_backed: bool,
-    pub new_score: u16,
-}
-
-pub struct SnapshotCreatedEvent {
-    pub snapshot_id: u64,
-    pub score: u16,
-}
-```
+| `request_vrf_update` | data_source_count | Request VRF for sampling |
 
 ---
 
 ## SDK API
+
+### AgentManager Class
+
+EIP-8004 compliant agent lifecycle management.
+
+```typescript
+class AgentManager {
+  constructor(config: AgentManagerConfig)
+
+  // Registration
+  async registerAgent(config: AgentRegistrationConfig): Promise<AgentRegistration>
+  async updateMetadata(agentId: string, metadataURI: string): Promise<TransactionResult>
+  async addEndpoint(agentId: string, endpoint: EndpointConfig): Promise<TransactionResult>
+
+  // Reputation
+  async submitFeedback(agentId: string, feedback: FeedbackSubmission): Promise<TransactionResult>
+  async getReputation(agentId: string): Promise<AgentReputation>
+
+  // Validation
+  async submitWork(work: WorkSubmission): Promise<TransactionResult>
+  async validateWork(workId: string, approved: boolean): Promise<TransactionResult>
+
+  // Cross-chain
+  async executeOnSolana(agentId: string, instruction: Instruction): Promise<TransactionResult>
+}
+```
 
 ### AmanaSDK Class
 
@@ -943,53 +939,33 @@ async getAddress(): Promise<string | null>
 // Reserve Operations
 async joinReserve(amount: BigNumberish, options?: TransactionOptions): Promise<TransactionResult>
 async proposeActivity(activityId: string, capitalRequired: BigNumberish, options?: TransactionOptions): Promise<TransactionResult>
-async approveActivity(activityId: string, options?: TransactionOptions): Promise<TransactionResult>
 async completeActivity(activityId: string, outcome: bigint, options?: TransactionOptions): Promise<TransactionResult>
-async depositCapital(amount: BigNumberish, options?: TransactionOptions): Promise<TransactionResult>
-async withdrawCapital(amount: BigNumberish, options?: TransactionOptions): Promise<TransactionResult>
-async exitReserve(options?: TransactionOptions): Promise<TransactionResult>
-
-// View Functions
-async getParticipant(agent: string): Promise<Participant>
-async getActivity(activityId: string): Promise<Activity>
-async getParticipants(): Promise<string[]>
-async getReserveStats(): Promise<ReserveStats>
-async getWithdrawableBalance(participantAddress: string): Promise<bigint>
 
 // HAI Operations
 async getHAIMetrics(): Promise<HAIMetrics>
 async createSnapshot(options?: TransactionOptions): Promise<TransactionResult>
-
-// Event Listeners
-onParticipantJoined(callback: (agent: string, capital: bigint) => void): void
-onActivityProposed(callback: (activityId: string, initiator: string, capital: bigint) => void): void
-onActivityCompleted(callback: (activityId: string, outcome: bigint) => void): void
 ```
 
 ### AmanaSolanaClient
 
-Solana-specific client methods.
+Solana-specific client methods with MagicBlock ER support.
 
 ```typescript
 // Connection
 async connect(wallet: Signer): Promise<void>
 getAddress(): PublicKey | null
 
-// PDA Helpers
-getReservePDA(): [PublicKey, number]
-getParticipantPDA(agent: PublicKey): [PublicKey, number]
-getActivityPDA(activityId: Buffer): [PublicKey, number]
-getHAIPDA(): [PublicKey, number]
-
-// Reserve Operations
+// Base Layer Operations
 async initializeReserve(minCapitalContribution: number, maxParticipants: number, options?: TransactionOptions): Promise<TransactionResult>
 async joinReserve(amount: number, options?: TransactionOptions): Promise<TransactionResult>
-async proposeActivity(activityId: Buffer, capitalRequired: number, description: string, options?: TransactionOptions): Promise<TransactionResult>
-async approveActivity(activityId: Buffer, options?: TransactionOptions): Promise<TransactionResult>
-async completeActivity(activityId: Buffer, outcome: number, options?: TransactionOptions): Promise<TransactionResult>
 
-// HAI Operations
-async trackActivity(activityId: Buffer, isCompliant: boolean, isAssetBacked: boolean, hasRealEconomicValue: boolean, validatorCount: number, positiveVotes: number, options?: TransactionOptions): Promise<TransactionResult>
+// MagicBlock ER Operations
+async delegateReserve(authority: PublicKey): Promise<TransactionResult>
+async deployCapitalRealtime(activityId: Buffer, amount: number): Promise<TransactionResult>
+async commitAndUndlegate(): Promise<TransactionResult>
+
+// HAI Operations with VRF
+async requestVRFUpdate(dataSourceCount: number): Promise<TransactionResult>
 ```
 
 ---
@@ -1005,24 +981,24 @@ async trackActivity(activityId: Buffer, isCompliant: boolean, isAssetBacked: boo
 | `INVALID_PARAMS` | Invalid parameters |
 | `NOT_AUTHORIZED` | Not authorized for operation |
 
+### Agent Errors
+
+| Code | Description |
+|------|-------------|
+| `AGENT_NOT_FOUND` | Agent ID not registered |
+| `AGENT_NOT_ACTIVE` | Agent is inactive |
+| `INVALID_METADATA` | Invalid metadata URI |
+| `INSUFFICIENT_STAKE` | Stake below minimum |
+| `NOT_VALIDATOR` | Not assigned as validator |
+
 ### Participant Errors
 
 | Code | Description |
 |------|-------------|
 | `NOT_PARTICIPANT` | Not a participant |
 | `ALREADY_PARTICIPANT` | Already a participant |
-| `INSUFFICIENT_CONTRIBUTION` | Below minimum contribution |
-| `INSUFFICIENT_BALANCE` | Insufficient balance |
+| `INSUFFICIENT_CONTRIBUTION` | Below minimum capital |
 | `MAX_PARTICIPANTS` | Maximum participants reached |
-
-### Activity Errors
-
-| Code | Description |
-|------|-------------|
-| `ACTIVITY_NOT_FOUND` | Activity not found |
-| `ACTIVITY_ALREADY_EXISTS` | Activity already exists |
-| `INVALID_ACTIVITY_STATUS` | Invalid activity status |
-| `INSUFFICIENT_CAPITAL` | Insufficient reserve capital |
 
 ### Transaction Errors
 
@@ -1032,14 +1008,6 @@ async trackActivity(activityId: Buffer, isCompliant: boolean, isAssetBacked: boo
 | `TRANSACTION_REJECTED` | Transaction rejected by user |
 | `GAS_ESTIMATION_FAILED` | Gas estimation failed |
 
-### Governance Errors
-
-| Code | Description |
-|------|-------------|
-| `VOTING_ENDED` | Voting period ended |
-| `QUORUM_NOT_MET` | Quorum not reached |
-| `SHARIA_NOT_APPROVED` | Sharia board approval required |
-
 ---
 
 ## Gas Costs
@@ -1048,14 +1016,14 @@ async trackActivity(activityId: Buffer, isCompliant: boolean, isAssetBacked: boo
 
 | Operation | Gas Limit | Est. Cost (ETH) |
 |-----------|-----------|-----------------|
+| registerAgent | ~150,000 | ~0.003 ETH |
+| submitFeedback | ~80,000 | ~0.0016 ETH |
+| submitWork | ~100,000 | ~0.002 ETH |
 | joinReserve | ~150,000 | ~0.003 ETH |
 | proposeActivity | ~80,000 | ~0.0016 ETH |
-| approveActivity | ~60,000 | ~0.0012 ETH |
 | completeActivity (profit) | ~180,000 | ~0.0036 ETH |
-| distributeProfit (per participant) | ~25,000 | ~0.0005 ETH |
-| withdrawCapital | ~70,000 | ~0.0014 ETH |
 
-### Solana Transaction Costs
+### Solana Transaction Costs (Base Layer)
 
 | Operation | Est. Cost (SOL) |
 |-----------|-----------------|
@@ -1063,31 +1031,47 @@ async trackActivity(activityId: Buffer, isCompliant: boolean, isAssetBacked: boo
 | joinReserve | ~0.0003 SOL |
 | proposeActivity | ~0.0002 SOL |
 | completeActivity | ~0.0004 SOL |
-| trackHAIActivity | ~0.0002 SOL |
+
+### MagicBlock ER Costs (Zero Fees)
+
+| Operation | Est. Cost (SOL) |
+|-----------|-----------------|
+| delegate_reserve | ~0.000005 SOL (rent only) |
+| deploy_capital_realtime | **0 SOL** |
+| execute_activity_realtime | **0 SOL** |
+| track_hai_realtime | **0 SOL** |
+| commit_and_undelegate | ~0.00001 SOL |
 
 ---
 
 ## Contract Interactions
 
-### AmanaReserve ↔ AmanaDAO
-- DAO can update reserve parameters
-- Reserve emits events for DAO proposals
+### EIP-8004 Interactions
 
-### AmanaReserve ↔ CircuitBreaker
-- Circuit breaker can pause reserve operations
-- Sharia board can veto emergency pauses
+```
+AgentIdentityRegistry
+    │
+    ├────► AgentReputationRegistry (feedback submission)
+    │
+    └────► AgentValidationRegistry (work verification)
+         │
+         └────► AmanaReserve (validated agent operations)
+```
 
-### AmanaDAO ↔ AmanaToken
-- Token holders vote on DAO proposals
-- DAO controls token minting/burning
+### Cross-Chain Interactions
 
-### HalalActivityIndex ↔ ActivityValidator
-- HAI tracks validated activities
-- Validator results feed into HAI scoring
-
-### All Contracts ↔ CircuitBreaker
-- Circuit breaker can pause any contract
-- Granular function-level pausing available
+```
+Ethereum (EIP-8004)
+    │
+    ├────► AgentIdentityRegistry (agent IDs)
+    │
+    └────► Bridge Layer
+         │
+         ▼
+    Solana (MagicBlock ER)
+         │
+         └────► Real-time execution
+```
 
 ---
 
