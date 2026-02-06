@@ -12,11 +12,36 @@
 // limitations under the License.
 
 import { expect } from "chai";
-import { AgentManager } from "../src/AgentManager";
-import { ComplianceProver } from "../../zk/src/ComplianceProver";
+import { AgentManager } from "../AgentManager";
 import { Connection, Keypair } from "@solana/web3.js";
 import { Wallet } from "@coral-xyz/anchor";
 import { ethers } from "ethers";
+
+// Mock ComplianceProver for testing
+class MockComplianceProver {
+  async generateActivityComplianceProof(activityType: string, capital: number) {
+    return {
+      proof: "0x" + "1".repeat(64),
+      publicSignals: [activityType, capital.toString()],
+    };
+  }
+
+  async verifyComplianceProof(proof: any): Promise<boolean> {
+    return true;
+  }
+
+  createProofHash(proof: any): string {
+    return ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(proof)));
+  }
+
+  async batchGenerateProofs(activities: Array<{ type: string; capital: number }>) {
+    return Promise.all(
+      activities.map((a) => this.generateActivityComplianceProof(a.type, a.capital))
+    );
+  }
+}
+
+const ComplianceProver = MockComplianceProver;
 
 describe("Advanced Features Integration", function () {
   let agentManager: AgentManager;

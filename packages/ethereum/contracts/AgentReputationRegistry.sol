@@ -18,17 +18,17 @@ contract AgentReputationRegistry {
     }
 
     AgentIdentityRegistry public immutable identityRegistry;
-    
+
     // agentId => clientAddress => feedbackIndex => Feedback
     mapping(uint256 => mapping(address => mapping(uint64 => Feedback))) private _feedback;
-    
+
     // agentId => clientAddress => lastFeedbackIndex
     mapping(uint256 => mapping(address => uint64)) private _lastIndex;
-    
+
     // agentId => list of client addresses
     mapping(uint256 => address[]) private _clients;
     mapping(uint256 => mapping(address => bool)) private _isClient;
-    
+
     // Response tracking: requestHash => responder => responseCount
     mapping(uint256 => mapping(address => mapping(uint64 => mapping(address => uint64)))) private _responseCount;
 
@@ -46,11 +46,7 @@ contract AgentReputationRegistry {
         bytes32 feedbackHash
     );
 
-    event FeedbackRevoked(
-        uint256 indexed agentId,
-        address indexed clientAddress,
-        uint64 indexed feedbackIndex
-    );
+    event FeedbackRevoked(uint256 indexed agentId, address indexed clientAddress, uint64 indexed feedbackIndex);
 
     event ResponseAppended(
         uint256 indexed agentId,
@@ -91,14 +87,9 @@ contract AgentReputationRegistry {
         require(identityRegistry.getApproved(agentId) != msg.sender, "Cannot give feedback as operator");
 
         uint64 feedbackIndex = ++_lastIndex[agentId][msg.sender];
-        
-        _feedback[agentId][msg.sender][feedbackIndex] = Feedback({
-            value: value,
-            valueDecimals: valueDecimals,
-            tag1: tag1,
-            tag2: tag2,
-            isRevoked: false
-        });
+
+        _feedback[agentId][msg.sender][feedbackIndex] =
+            Feedback({value: value, valueDecimals: valueDecimals, tag1: tag1, tag2: tag2, isRevoked: false});
 
         // Add client to list if first feedback
         if (!_isClient[agentId][msg.sender]) {
@@ -133,10 +124,10 @@ contract AgentReputationRegistry {
         bytes32 haiScoreHash
     ) external {
         require(identityRegistry.shariaCompliant(agentId), "Agent not Sharia compliant");
-        
+
         // In production, verify HAI score hash with HAI contract
         require(haiScoreHash != bytes32(0), "Invalid HAI score");
-        
+
         giveFeedback(agentId, value, valueDecimals, activityType, complianceLevel, "", "", bytes32(0));
     }
 
@@ -144,11 +135,14 @@ contract AgentReputationRegistry {
      * @dev Revoke feedback
      */
     function revokeFeedback(uint256 agentId, uint64 feedbackIndex) external {
-        require(_feedback[agentId][msg.sender][feedbackIndex].value != 0 || 
-                _lastIndex[agentId][msg.sender] >= feedbackIndex, "Feedback does not exist");
-        
+        require(
+            _feedback[agentId][msg.sender][feedbackIndex].value != 0
+                || _lastIndex[agentId][msg.sender] >= feedbackIndex,
+            "Feedback does not exist"
+        );
+
         _feedback[agentId][msg.sender][feedbackIndex].isRevoked = true;
-        
+
         emit FeedbackRevoked(agentId, msg.sender, feedbackIndex);
     }
 
@@ -162,42 +156,44 @@ contract AgentReputationRegistry {
         string calldata responseURI,
         bytes32 responseHash
     ) external {
-        require(_feedback[agentId][clientAddress][feedbackIndex].value != 0 || 
-                _lastIndex[agentId][clientAddress] >= feedbackIndex, "Feedback does not exist");
-        
+        require(
+            _feedback[agentId][clientAddress][feedbackIndex].value != 0
+                || _lastIndex[agentId][clientAddress] >= feedbackIndex,
+            "Feedback does not exist"
+        );
+
         _responseCount[agentId][clientAddress][feedbackIndex][msg.sender]++;
-        
+
         emit ResponseAppended(agentId, clientAddress, feedbackIndex, msg.sender, responseURI, responseHash);
     }
 
     /**
      * @dev Get summary of feedback for an agent
      */
-    function getSummary(
-        uint256 agentId,
-        address[] calldata clientAddresses,
-        string calldata tag1,
-        string calldata tag2
-    ) external view returns (uint64 count, int128 summaryValue, uint8 summaryValueDecimals) {
+    function getSummary(uint256 agentId, address[] calldata clientAddresses, string calldata tag1, string calldata tag2)
+        external
+        view
+        returns (uint64 count, int128 summaryValue, uint8 summaryValueDecimals)
+    {
         require(clientAddresses.length > 0, "Client addresses required");
-        
+
         int256 totalValue = 0;
         uint64 validCount = 0;
         uint8 maxDecimals = 0;
-        
-        for (uint i = 0; i < clientAddresses.length; i++) {
+
+        for (uint256 i = 0; i < clientAddresses.length; i++) {
             address client = clientAddresses[i];
             uint64 lastIndex = _lastIndex[agentId][client];
-            
+
             for (uint64 j = 1; j <= lastIndex; j++) {
                 Feedback memory feedback = _feedback[agentId][client][j];
-                
+
                 if (feedback.isRevoked) continue;
-                
+
                 // Filter by tags if provided
                 if (bytes(tag1).length > 0 && keccak256(bytes(feedback.tag1)) != keccak256(bytes(tag1))) continue;
                 if (bytes(tag2).length > 0 && keccak256(bytes(feedback.tag2)) != keccak256(bytes(tag2))) continue;
-                
+
                 totalValue += int256(feedback.value);
                 validCount++;
                 if (feedback.valueDecimals > maxDecimals) {
@@ -205,28 +201,22 @@ contract AgentReputationRegistry {
                 }
             }
         }
-        
+
         if (validCount == 0) {
             return (0, 0, 0);
         }
-        
+
         return (validCount, int128(totalValue / int256(uint256(validCount))), maxDecimals);
     }
 
     /**
      * @dev Read specific feedback
      */
-    function readFeedback(
-        uint256 agentId,
-        address clientAddress,
-        uint64 feedbackIndex
-    ) external view returns (
-        int128 value,
-        uint8 valueDecimals,
-        string memory tag1,
-        string memory tag2,
-        bool isRevoked
-    ) {
+    function readFeedback(uint256 agentId, address clientAddress, uint64 feedbackIndex)
+        external
+        view
+        returns (int128 value, uint8 valueDecimals, string memory tag1, string memory tag2, bool isRevoked)
+    {
         Feedback memory feedback = _feedback[agentId][clientAddress][feedbackIndex];
         return (feedback.value, feedback.valueDecimals, feedback.tag1, feedback.tag2, feedback.isRevoked);
     }
@@ -258,11 +248,11 @@ contract AgentReputationRegistry {
             // Return total responses (simplified - would need to track all responders)
             return 1;
         }
-        
-        for (uint i = 0; i < responders.length; i++) {
+
+        for (uint256 i = 0; i < responders.length; i++) {
             count += _responseCount[agentId][clientAddress][feedbackIndex][responders[i]];
         }
-        
+
         return count;
     }
 }

@@ -36,11 +36,11 @@ contract HalalActivityIndexTest is Test {
         vm.prank(updater);
         hai.trackActivity(
             keccak256("activity1"),
-            true,  // isCompliant
-            true,  // isAssetBacked
-            true,  // hasRealEconomicValue
-            5,     // validatorCount
-            4      // positiveVotes
+            true, // isCompliant
+            true, // isAssetBacked
+            true, // hasRealEconomicValue
+            5, // validatorCount
+            4 // positiveVotes
         );
 
         assertEq(hai.totalActivities(), 1);
@@ -110,12 +110,7 @@ contract HalalActivityIndexTest is Test {
         uint256 newValidatorWeight = 1500;
 
         vm.prank(admin);
-        hai.updateWeights(
-            newComplianceWeight,
-            newAssetWeight,
-            newEconomicWeight,
-            newValidatorWeight
-        );
+        hai.updateWeights(newComplianceWeight, newAssetWeight, newEconomicWeight, newValidatorWeight);
 
         // Should not revert if weights sum to 10000
     }
@@ -134,13 +129,6 @@ contract HalalActivityIndexTest is Test {
     function testUnauthorizedTracking() public {
         vm.prank(address(0x999));
         vm.expectRevert();
-        hai.trackActivity(
-            keccak256("activity1"),
-            true,
-            true,
-            true,
-            5,
-            4
-        );
+        hai.trackActivity(keccak256("activity1"), true, true, true, 5, 4);
     }
 }

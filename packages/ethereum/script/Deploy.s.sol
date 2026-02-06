@@ -16,16 +16,19 @@ import "../contracts/CircuitBreaker.sol";
  * @notice Deployment script for AMANA reserve system
  */
 contract DeployAmana {
-    function run() external returns (
-        AmanaReserve reserve,
-        CapitalPool capitalPool,
-        RiskSharing riskSharing,
-        ActivityValidator validator,
-        AmanaToken token,
-        AmanaDAO dao,
-        HalalActivityIndex hai,
-        CircuitBreaker circuitBreaker
-    ) {
+    function run()
+        external
+        returns (
+            AmanaReserve reserve,
+            CapitalPool capitalPool,
+            RiskSharing riskSharing,
+            ActivityValidator validator,
+            AmanaToken token,
+            AmanaDAO dao,
+            HalalActivityIndex hai,
+            CircuitBreaker circuitBreaker
+        )
+    {
         // Deploy contracts
         reserve = new AmanaReserve();
         capitalPool = new CapitalPool();
@@ -39,10 +42,10 @@ contract DeployAmana {
         // 1 block voting delay, 50400 blocks (1 week) voting period, 1e18 token threshold, 4% quorum
         dao = new AmanaDAO(
             IVotes(address(token)),
-            uint48(1),          // votingDelay: 1 block
-            uint32(50400),      // votingPeriod: ~1 week (assuming 15s blocks)
-            1e18,               // proposalThreshold: 1 token
-            400                 // quorumNumerator: 4%
+            uint48(1), // votingDelay: 1 block
+            uint32(50400), // votingPeriod: ~1 week (assuming 15s blocks)
+            1e18, // proposalThreshold: 1 token
+            400 // quorumNumerator: 4%
         );
 
         // Initialize reserve with 0.1 ether minimum

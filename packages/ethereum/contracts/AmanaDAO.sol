@@ -24,12 +24,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
  * - Proposals affecting core Sharia principles require higher approval
  * - Transparent governance with on-chain voting records
  */
-contract AmanaDAO is
-    GovernorCountingSimple,
-    GovernorSettings,
-    GovernorVotesQuorumFraction,
-    AccessControl
-{
+contract AmanaDAO is GovernorCountingSimple, GovernorSettings, GovernorVotesQuorumFraction, AccessControl {
     /// @notice Version of the contract
     string public constant VERSION = "1.0.0";
 
@@ -47,12 +42,12 @@ contract AmanaDAO is
 
     /// @notice Sharia review record
     struct ShariaReview {
-        bool reviewed;                // Whether the proposal has been reviewed
-        bool approved;                // Whether the Sharia board approved
-        uint256 approvalCount;         // Number of Sharia board approvals
-        uint256 disapprovalCount;      // Number of Sharia board disapprovals
-        uint256 reviewDeadline;        // Deadline for Sharia review
-        string reasoning;              // Reasoning for the decision
+        bool reviewed; // Whether the proposal has been reviewed
+        bool approved; // Whether the Sharia board approved
+        uint256 approvalCount; // Number of Sharia board approvals
+        uint256 disapprovalCount; // Number of Sharia board disapprovals
+        uint256 reviewDeadline; // Deadline for Sharia review
+        string reasoning; // Reasoning for the decision
     }
 
     // Events
@@ -128,14 +123,12 @@ contract AmanaDAO is
      * @param approved Whether the board member approves
      * @param reasoning Reason for the decision
      */
-    function shariaBoardReview(
-        uint256 proposalId,
-        bool approved,
-        string memory reasoning
-    ) external onlyRole(SHARIA_BOARD_ROLE) {
+    function shariaBoardReview(uint256 proposalId, bool approved, string memory reasoning)
+        external
+        onlyRole(SHARIA_BOARD_ROLE)
+    {
         require(
-            state(proposalId) == ProposalState.Pending ||
-            state(proposalId) == ProposalState.Active,
+            state(proposalId) == ProposalState.Pending || state(proposalId) == ProposalState.Active,
             "Proposal not active"
         );
 
@@ -167,14 +160,8 @@ contract AmanaDAO is
      * @notice Veto a proposal (Sharia board only)
      * @param proposalId The action ID to veto
      */
-    function vetoPauseAction(uint256 proposalId)
-        external
-        onlyRole(SHARIA_BOARD_ROLE)
-    {
-        require(
-            affectsShariaPrinciples[proposalId],
-            "Proposal does not affect Sharia principles"
-        );
+    function vetoPauseAction(uint256 proposalId) external onlyRole(SHARIA_BOARD_ROLE) {
+        require(affectsShariaPrinciples[proposalId], "Proposal does not affect Sharia principles");
 
         // Cancel the proposal by marking it as vetoed in Sharia review
         shariaReviews[proposalId].approved = false;
@@ -204,12 +191,7 @@ contract AmanaDAO is
      * @notice Get the current state of a proposal
      * @param proposalId ID of the proposal
      */
-    function state(uint256 proposalId)
-        public
-        view
-        override(Governor)
-        returns (ProposalState)
-    {
+    function state(uint256 proposalId) public view override(Governor) returns (ProposalState) {
         // Check if Sharia review vetoed the proposal
         if (affectsShariaPrinciples[proposalId]) {
             ShariaReview memory review = shariaReviews[proposalId];
@@ -227,10 +209,7 @@ contract AmanaDAO is
      * @notice Add a Sharia board member
      * @param member Address of the new board member
      */
-    function addShariaBoardMember(address member)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function addShariaBoardMember(address member) external onlyRole(DEFAULT_ADMIN_ROLE) {
         grantRole(SHARIA_BOARD_ROLE, member);
         emit ShariaBoardMemberAdded(member);
     }
@@ -239,10 +218,7 @@ contract AmanaDAO is
      * @notice Remove a Sharia board member
      * @param member Address of the board member to remove
      */
-    function removeShariaBoardMember(address member)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function removeShariaBoardMember(address member) external onlyRole(DEFAULT_ADMIN_ROLE) {
         revokeRole(SHARIA_BOARD_ROLE, member);
         emit ShariaBoardMemberRemoved(member);
     }
@@ -251,12 +227,7 @@ contract AmanaDAO is
      * @notice Override supportsInterface to handle both Governor and AccessControl
      * @param interfaceId The interface identifier
      */
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(Governor, AccessControl)
-        returns (bool)
-    {
+    function supportsInterface(bytes4 interfaceId) public view override(Governor, AccessControl) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
@@ -264,23 +235,14 @@ contract AmanaDAO is
      * @notice Get Sharia review for a proposal
      * @param proposalId ID of the proposal
      */
-    function getShariaReview(uint256 proposalId)
-        external
-        view
-        returns (ShariaReview memory)
-    {
+    function getShariaReview(uint256 proposalId) external view returns (ShariaReview memory) {
         return shariaReviews[proposalId];
     }
 
     /**
      * @notice Override proposalThreshold to resolve inheritance conflict
      */
-    function proposalThreshold()
-        public
-        view
-        override(Governor, GovernorSettings)
-        returns (uint256)
-    {
+    function proposalThreshold() public view override(Governor, GovernorSettings) returns (uint256) {
         return super.proposalThreshold();
     }
 }

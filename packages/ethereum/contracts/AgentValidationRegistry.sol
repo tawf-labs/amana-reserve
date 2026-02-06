@@ -19,21 +19,18 @@ contract AgentValidationRegistry {
     }
 
     AgentIdentityRegistry public immutable identityRegistry;
-    
+
     // requestHash => ValidationRecord
     mapping(bytes32 => ValidationRecord) private _validations;
-    
+
     // agentId => requestHashes[]
     mapping(uint256 => bytes32[]) private _agentValidations;
-    
+
     // validatorAddress => requestHashes[]
     mapping(address => bytes32[]) private _validatorRequests;
 
     event ValidationRequest(
-        address indexed validatorAddress,
-        uint256 indexed agentId,
-        string requestURI,
-        bytes32 indexed requestHash
+        address indexed validatorAddress, uint256 indexed agentId, string requestURI, bytes32 indexed requestHash
     );
 
     event ValidationResponse(
@@ -66,8 +63,10 @@ contract AgentValidationRegistry {
         string calldata requestURI,
         bytes32 requestHash
     ) external {
-        require(identityRegistry.ownerOf(agentId) == msg.sender || 
-                identityRegistry.getApproved(agentId) == msg.sender, "Not authorized");
+        require(
+            identityRegistry.ownerOf(agentId) == msg.sender || identityRegistry.getApproved(agentId) == msg.sender,
+            "Not authorized"
+        );
         require(validatorAddress != address(0), "Invalid validator");
         require(requestHash != bytes32(0), "Invalid request hash");
 
@@ -107,23 +106,15 @@ contract AgentValidationRegistry {
         validation.tag = tag;
         validation.lastUpdate = block.timestamp;
 
-        emit ValidationResponse(
-            msg.sender,
-            validation.agentId,
-            requestHash,
-            response,
-            responseURI,
-            responseHash,
-            tag
-        );
+        emit ValidationResponse(msg.sender, validation.agentId, requestHash, response, responseURI, responseHash, tag);
     }
 
     /**
      * @dev Get validation status
      */
-    function getValidationStatus(bytes32 requestHash) 
-        external 
-        view 
+    function getValidationStatus(bytes32 requestHash)
+        external
+        view
         returns (
             address validatorAddress,
             uint256 agentId,
@@ -131,7 +122,7 @@ contract AgentValidationRegistry {
             bytes32 responseHash,
             string memory tag,
             uint256 lastUpdate
-        ) 
+        )
     {
         ValidationRecord memory validation = _validations[requestHash];
         return (
@@ -147,22 +138,22 @@ contract AgentValidationRegistry {
     /**
      * @dev Get validation summary for an agent
      */
-    function getSummary(
-        uint256 agentId,
-        address[] calldata validatorAddresses,
-        string calldata tag
-    ) external view returns (uint64 count, uint8 averageResponse) {
+    function getSummary(uint256 agentId, address[] calldata validatorAddresses, string calldata tag)
+        external
+        view
+        returns (uint64 count, uint8 averageResponse)
+    {
         bytes32[] memory agentRequests = _agentValidations[agentId];
         uint256 totalResponse = 0;
         uint64 validCount = 0;
 
-        for (uint i = 0; i < agentRequests.length; i++) {
+        for (uint256 i = 0; i < agentRequests.length; i++) {
             ValidationRecord memory validation = _validations[agentRequests[i]];
-            
+
             // Filter by validator if provided
             if (validatorAddresses.length > 0) {
                 bool validatorMatch = false;
-                for (uint j = 0; j < validatorAddresses.length; j++) {
+                for (uint256 j = 0; j < validatorAddresses.length; j++) {
                     if (validation.validatorAddress == validatorAddresses[j]) {
                         validatorMatch = true;
                         break;
@@ -170,13 +161,12 @@ contract AgentValidationRegistry {
                 }
                 if (!validatorMatch) continue;
             }
-            
+
             // Filter by tag if provided
-            if (bytes(tag).length > 0 && 
-                keccak256(bytes(validation.tag)) != keccak256(bytes(tag))) {
+            if (bytes(tag).length > 0 && keccak256(bytes(validation.tag)) != keccak256(bytes(tag))) {
                 continue;
             }
-            
+
             if (validation.response > 0) {
                 totalResponse += validation.response;
                 validCount++;
@@ -216,7 +206,7 @@ contract AgentValidationRegistry {
     ) external {
         require(identityRegistry.shariaCompliant(agentId), "Agent not Sharia compliant");
         require(complianceProofs.length > 0, "Compliance proofs required");
-        
+
         validationRequest(validatorAddress, agentId, requestURI, requestHash);
     }
 
@@ -232,7 +222,7 @@ contract AgentValidationRegistry {
     ) external {
         ValidationRecord storage validation = _validations[requestHash];
         require(identityRegistry.shariaCompliant(validation.agentId), "Agent not Sharia compliant");
-        
+
         string memory complianceTag = isHalalCompliant ? "halal-compliant" : "non-compliant";
         validationResponse(requestHash, response, responseURI, responseHash, complianceTag);
     }

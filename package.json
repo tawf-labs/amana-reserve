@@ -10,6 +10,7 @@
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:e2e": "cd packages/sdk && pnpm test",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,sol,md,json}\"",
     "clean": "turbo run clean && rm -rf node_modules",

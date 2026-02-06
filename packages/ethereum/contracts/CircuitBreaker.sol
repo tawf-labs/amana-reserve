@@ -33,9 +33,9 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
 
     /// @notice Status of the circuit breaker
     enum CircuitBreakerStatus {
-        Normal,     // All operations normal
-        Paused,     // System paused (emergency stop)
-        Locked      // System locked (requires special unlock)
+        Normal, // All operations normal
+        Paused, // System paused (emergency stop)
+        Locked // System locked (requires special unlock)
     }
 
     /// @notice Current system status
@@ -61,13 +61,13 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
 
     /// @notice Pause action record
     struct PauseAction {
-        address initiator;        // Who initiated the pause
-        address targetContract;   // Contract affected (address(0) for global)
-        bytes4 functionSelector;  // Function affected (bytes4(0) for all)
-        bool isPause;             // true = pause, false = unpause
+        address initiator; // Who initiated the pause
+        address targetContract; // Contract affected (address(0) for global)
+        bytes4 functionSelector; // Function affected (bytes4(0) for all)
+        bool isPause; // true = pause, false = unpause
         CircuitBreakerStatus previousStatus; // Previous status
-        uint256 timestamp;        // When the action occurred
-        string reason;            // Reason for the action
+        uint256 timestamp; // When the action occurred
+        string reason; // Reason for the action
     }
 
     // Events
@@ -127,11 +127,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @notice Pause the entire system (emergency stop)
      * @param reason Reason for the pause
      */
-    function pauseSystem(string calldata reason)
-        external
-        onlyRole(PAUSER_ROLE)
-        nonReentrant
-    {
+    function pauseSystem(string calldata reason) external onlyRole(PAUSER_ROLE) nonReentrant {
         require(status == CircuitBreakerStatus.Normal, "System already paused");
 
         CircuitBreakerStatus previousStatus = status;
@@ -139,14 +135,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
         pauseTimestamp = block.timestamp;
 
         // Record action
-        _recordPauseAction(
-            msg.sender,
-            address(0),
-            bytes4(0),
-            true,
-            previousStatus,
-            reason
-        );
+        _recordPauseAction(msg.sender, address(0), bytes4(0), true, previousStatus, reason);
 
         emit SystemPaused(msg.sender, reason);
     }
@@ -158,18 +147,11 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
         require(status == CircuitBreakerStatus.Paused, "System not paused");
 
         // Check if caller has permission
-        require(
-            hasRole(ADMIN_ROLE, msg.sender) ||
-            hasRole(SHARIA_BOARD_ROLE, msg.sender),
-            "Not authorized to unpause"
-        );
+        require(hasRole(ADMIN_ROLE, msg.sender) || hasRole(SHARIA_BOARD_ROLE, msg.sender), "Not authorized to unpause");
 
         // Check auto-unlock duration
         if (autoUnlockDuration > 0) {
-            require(
-                block.timestamp >= pauseTimestamp + autoUnlockDuration,
-                "Auto-unlock period not elapsed"
-            );
+            require(block.timestamp >= pauseTimestamp + autoUnlockDuration, "Auto-unlock period not elapsed");
         }
 
         CircuitBreakerStatus previousStatus = status;
@@ -177,14 +159,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
         pauseTimestamp = 0;
 
         // Record action
-        _recordPauseAction(
-            msg.sender,
-            address(0),
-            bytes4(0),
-            false,
-            previousStatus,
-            "System unpause"
-        );
+        _recordPauseAction(msg.sender, address(0), bytes4(0), false, previousStatus, "System unpause");
 
         emit SystemUnpaused(msg.sender);
     }
@@ -193,24 +168,13 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @notice Lock the system (requires special unlock procedure)
      * @param reason Reason for the lock
      */
-    function lockSystem(string calldata reason)
-        external
-        onlyRole(ADMIN_ROLE)
-        nonReentrant
-    {
+    function lockSystem(string calldata reason) external onlyRole(ADMIN_ROLE) nonReentrant {
         CircuitBreakerStatus previousStatus = status;
         status = CircuitBreakerStatus.Locked;
         pauseTimestamp = block.timestamp;
 
         // Record action
-        _recordPauseAction(
-            msg.sender,
-            address(0),
-            bytes4(0),
-            true,
-            previousStatus,
-            reason
-        );
+        _recordPauseAction(msg.sender, address(0), bytes4(0), true, previousStatus, reason);
 
         emit SystemLocked(msg.sender, reason);
     }
@@ -219,11 +183,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @notice Unlock the system (requires admin + Sharia board approval)
      * @param actionId The pause action ID to unlock from
      */
-    function unlockSystem(uint256 actionId)
-        external
-        onlyRole(ADMIN_ROLE)
-        nonReentrant
-    {
+    function unlockSystem(uint256 actionId) external onlyRole(ADMIN_ROLE) nonReentrant {
         require(status == CircuitBreakerStatus.Locked, "System not locked");
         require(actionId < pauseActionCounter, "Invalid action ID");
 
@@ -234,14 +194,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
         pauseTimestamp = 0;
 
         // Record action
-        _recordPauseAction(
-            msg.sender,
-            address(0),
-            bytes4(0),
-            false,
-            CircuitBreakerStatus.Locked,
-            "System unlock"
-        );
+        _recordPauseAction(msg.sender, address(0), bytes4(0), false, CircuitBreakerStatus.Locked, "System unlock");
 
         emit SystemUnpaused(msg.sender);
     }
@@ -250,10 +203,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @notice Veto a pause/unpause action (Sharia board only)
      * @param actionId The action ID to veto
      */
-    function vetoPauseAction(uint256 actionId)
-        external
-        onlyRole(SHARIA_BOARD_ROLE)
-    {
+    function vetoPauseAction(uint256 actionId) external onlyRole(SHARIA_BOARD_ROLE) {
         require(actionId < pauseActionCounter, "Invalid action ID");
 
         PauseAction storage action = pauseActions[actionId];
@@ -277,10 +227,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @notice Pause a specific contract
      * @param targetContract Address of the contract to pause
      */
-    function pauseContract(address targetContract)
-        external
-        onlyRole(PAUSER_ROLE)
-    {
+    function pauseContract(address targetContract) external onlyRole(PAUSER_ROLE) {
         require(targetContract != address(0), "Invalid contract address");
         require(!contractPaused[targetContract], "Contract already paused");
 
@@ -293,10 +240,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @notice Unpause a specific contract
      * @param targetContract Address of the contract to unpause
      */
-    function unpauseContract(address targetContract)
-        external
-        onlyRole(ADMIN_ROLE)
-    {
+    function unpauseContract(address targetContract) external onlyRole(ADMIN_ROLE) {
         require(contractPaused[targetContract], "Contract not paused");
 
         contractPaused[targetContract] = false;
@@ -308,10 +252,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @notice Pause a specific function across all contracts
      * @param functionSelector Function selector to pause
      */
-    function pauseFunction(bytes4 functionSelector)
-        external
-        onlyRole(PAUSER_ROLE)
-    {
+    function pauseFunction(bytes4 functionSelector) external onlyRole(PAUSER_ROLE) {
         require(functionSelector != bytes4(0), "Invalid function selector");
         require(!functionPaused[functionSelector], "Function already paused");
 
@@ -324,10 +265,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @notice Unpause a specific function
      * @param functionSelector Function selector to unpause
      */
-    function unpauseFunction(bytes4 functionSelector)
-        external
-        onlyRole(ADMIN_ROLE)
-    {
+    function unpauseFunction(bytes4 functionSelector) external onlyRole(ADMIN_ROLE) {
         require(functionPaused[functionSelector], "Function not paused");
 
         functionPaused[functionSelector] = false;
@@ -341,10 +279,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @notice Update the auto-unlock duration
      * @param newDuration New duration in seconds (0 for manual only)
      */
-    function setAutoUnlockDuration(uint256 newDuration)
-        external
-        onlyRole(ADMIN_ROLE)
-    {
+    function setAutoUnlockDuration(uint256 newDuration) external onlyRole(ADMIN_ROLE) {
         autoUnlockDuration = newDuration;
         emit AutoUnlockDurationUpdated(newDuration);
     }
@@ -353,10 +288,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @notice Grant pauser role to an address
      * @param pauser Address to grant pauser role to
      */
-    function grantPauserRole(address pauser)
-        external
-        onlyRole(ADMIN_ROLE)
-    {
+    function grantPauserRole(address pauser) external onlyRole(ADMIN_ROLE) {
         grantRole(PAUSER_ROLE, pauser);
         emit PauserRoleGranted(pauser);
     }
@@ -375,8 +307,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @param contractAddress Address to check
      */
     function canExecute(address contractAddress) external view returns (bool) {
-        return status == CircuitBreakerStatus.Normal &&
-               !contractPaused[contractAddress];
+        return status == CircuitBreakerStatus.Normal && !contractPaused[contractAddress];
     }
 
     /**
@@ -384,8 +315,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @param functionSelector Function selector to check
      */
     function canExecuteFunction(bytes4 functionSelector) external view returns (bool) {
-        return status == CircuitBreakerStatus.Normal &&
-               !functionPaused[functionSelector];
+        return status == CircuitBreakerStatus.Normal && !functionPaused[functionSelector];
     }
 
     /**
@@ -408,11 +338,7 @@ contract CircuitBreaker is AccessControl, ReentrancyGuard {
      * @notice Get pause action details
      * @param actionId ID of the pause action
      */
-    function getPauseAction(uint256 actionId)
-        external
-        view
-        returns (PauseAction memory)
-    {
+    function getPauseAction(uint256 actionId) external view returns (PauseAction memory) {
         require(actionId < pauseActionCounter, "Invalid action ID");
         return pauseActions[actionId];
     }

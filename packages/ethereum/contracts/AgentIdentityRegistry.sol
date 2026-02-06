@@ -15,7 +15,7 @@ contract AgentIdentityRegistry is ERC721URIStorage, AccessControl, EIP712 {
     using ECDSA for bytes32;
 
     bytes32 public constant SHARIA_BOARD_ROLE = keccak256("SHARIA_BOARD_ROLE");
-    
+
     struct MetadataEntry {
         string metadataKey;
         bytes metadataValue;
@@ -25,15 +25,17 @@ contract AgentIdentityRegistry is ERC721URIStorage, AccessControl, EIP712 {
     mapping(uint256 => mapping(string => bytes)) private _metadata;
     mapping(uint256 => address) private _agentWallets;
     mapping(uint256 => bool) public shariaCompliant;
-    
+
     uint256 private _nextAgentId = 1;
 
     // EIP-712 type hash for agent wallet verification
-    bytes32 private constant AGENT_WALLET_TYPEHASH = 
+    bytes32 private constant AGENT_WALLET_TYPEHASH =
         keccak256("SetAgentWallet(uint256 agentId,address newWallet,uint256 deadline)");
 
     event Registered(uint256 indexed agentId, string agentURI, address indexed owner);
-    event MetadataSet(uint256 indexed agentId, string indexed indexedMetadataKey, string metadataKey, bytes metadataValue);
+    event MetadataSet(
+        uint256 indexed agentId, string indexed indexedMetadataKey, string metadataKey, bytes metadataValue
+    );
     event URIUpdated(uint256 indexed agentId, string newURI, address indexed updatedBy);
     event ShariaCompliantAgentRegistered(uint256 indexed agentId, address indexed owner);
     event ComplianceFlagged(uint256 indexed agentId);
@@ -45,25 +47,22 @@ contract AgentIdentityRegistry is ERC721URIStorage, AccessControl, EIP712 {
     /**
      * @dev Register a new agent with optional metadata
      */
-    function register(string memory agentURI, MetadataEntry[] calldata metadata) 
-        external 
-        returns (uint256 agentId) 
-    {
+    function register(string memory agentURI, MetadataEntry[] calldata metadata) external returns (uint256 agentId) {
         agentId = _nextAgentId++;
         _mint(msg.sender, agentId);
-        
+
         if (bytes(agentURI).length > 0) {
             _setTokenURI(agentId, agentURI);
         }
-        
+
         // Set agent wallet to owner by default
         _metadata[agentId]["agentWallet"] = abi.encode(msg.sender);
         _agentWallets[agentId] = msg.sender;
-        
+
         emit MetadataSet(agentId, "agentWallet", "agentWallet", abi.encode(msg.sender));
-        
+
         // Set additional metadata
-        for (uint i = 0; i < metadata.length; i++) {
+        for (uint256 i = 0; i < metadata.length; i++) {
             require(
                 keccak256(bytes(metadata[i].metadataKey)) != keccak256(bytes("agentWallet")),
                 "Cannot set agentWallet via metadata"
@@ -71,7 +70,7 @@ contract AgentIdentityRegistry is ERC721URIStorage, AccessControl, EIP712 {
             _metadata[agentId][metadata[i].metadataKey] = metadata[i].metadataValue;
             emit MetadataSet(agentId, metadata[i].metadataKey, metadata[i].metadataKey, metadata[i].metadataValue);
         }
-        
+
         emit Registered(agentId, agentURI, msg.sender);
         return agentId;
     }
@@ -79,16 +78,16 @@ contract AgentIdentityRegistry is ERC721URIStorage, AccessControl, EIP712 {
     /**
      * @dev Register a Sharia-compliant agent
      */
-    function registerShariaCompliantAgent(
-        string memory agentURI,
-        bytes32[] memory complianceProofs
-    ) external returns (uint256 agentId) {
+    function registerShariaCompliantAgent(string memory agentURI, bytes32[] memory complianceProofs)
+        external
+        returns (uint256 agentId)
+    {
         agentId = register(agentURI, new MetadataEntry[](0));
-        
+
         // Verify Sharia compliance (simplified - in production would verify proofs)
         require(complianceProofs.length > 0, "Compliance proofs required");
         shariaCompliant[agentId] = true;
-        
+
         emit ShariaCompliantAgentRegistered(agentId, msg.sender);
         return agentId;
     }
@@ -96,24 +95,19 @@ contract AgentIdentityRegistry is ERC721URIStorage, AccessControl, EIP712 {
     /**
      * @dev Set agent wallet with signature verification
      */
-    function setAgentWallet(
-        uint256 agentId, 
-        address newWallet, 
-        uint256 deadline, 
-        bytes calldata signature
-    ) external {
+    function setAgentWallet(uint256 agentId, address newWallet, uint256 deadline, bytes calldata signature) external {
         require(ownerOf(agentId) == msg.sender, "Not agent owner");
         require(block.timestamp <= deadline, "Signature expired");
-        
+
         bytes32 structHash = keccak256(abi.encode(AGENT_WALLET_TYPEHASH, agentId, newWallet, deadline));
         bytes32 hash = _hashTypedDataV4(structHash);
         address signer = hash.recover(signature);
-        
+
         require(signer == newWallet, "Invalid signature");
-        
+
         _agentWallets[agentId] = newWallet;
         _metadata[agentId]["agentWallet"] = abi.encode(newWallet);
-        
+
         emit MetadataSet(agentId, "agentWallet", "agentWallet", abi.encode(newWallet));
     }
 
@@ -131,7 +125,7 @@ contract AgentIdentityRegistry is ERC721URIStorage, AccessControl, EIP712 {
         require(ownerOf(agentId) == msg.sender, "Not agent owner");
         _agentWallets[agentId] = address(0);
         _metadata[agentId]["agentWallet"] = abi.encode(address(0));
-        
+
         emit MetadataSet(agentId, "agentWallet", "agentWallet", abi.encode(address(0)));
     }
 
@@ -141,7 +135,7 @@ contract AgentIdentityRegistry is ERC721URIStorage, AccessControl, EIP712 {
     function setMetadata(uint256 agentId, string memory metadataKey, bytes memory metadataValue) external {
         require(ownerOf(agentId) == msg.sender || getApproved(agentId) == msg.sender, "Not authorized");
         require(keccak256(bytes(metadataKey)) != keccak256(bytes("agentWallet")), "Use setAgentWallet");
-        
+
         _metadata[agentId][metadataKey] = metadataValue;
         emit MetadataSet(agentId, metadataKey, metadataKey, metadataValue);
     }
@@ -173,12 +167,9 @@ contract AgentIdentityRegistry is ERC721URIStorage, AccessControl, EIP712 {
     /**
      * @dev Override transfer to clear agent wallet
      */
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize) 
-        internal 
-        override 
-    {
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize) internal override {
         super._beforeTokenTransfer(from, to, tokenId, batchSize);
-        
+
         if (from != address(0) && to != address(0)) {
             // Clear agent wallet on transfer
             _agentWallets[tokenId] = address(0);
@@ -189,11 +180,11 @@ contract AgentIdentityRegistry is ERC721URIStorage, AccessControl, EIP712 {
     /**
      * @dev See {IERC165-supportsInterface}
      */
-    function supportsInterface(bytes4 interfaceId) 
-        public 
-        view 
-        override(ERC721URIStorage, AccessControl) 
-        returns (bool) 
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721URIStorage, AccessControl)
+        returns (bool)
     {
         return super.supportsInterface(interfaceId);
     }

@@ -19,7 +19,7 @@ contract ActivityValidator {
         string validationNotes;
         uint256 validatedAt;
     }
-    
+
     /// @notice Economic activity details
     struct EconomicActivity {
         bytes32 activityId;
@@ -29,7 +29,7 @@ contract ActivityValidator {
         address[] assetAddresses;
         bool isValidated;
     }
-    
+
     enum ActivityType {
         Trade,
         Manufacturing,
@@ -38,26 +38,26 @@ contract ActivityValidator {
         RealEstate,
         Technology
     }
-    
+
     /// @notice Mapping from activity ID to validation record
     mapping(bytes32 => ValidationRecord) public validations;
-    
+
     /// @notice Mapping from activity ID to economic activity
     mapping(bytes32 => EconomicActivity) public activities;
-    
+
     /// @notice List of prohibited activities (non-Sharia-compliant)
     mapping(string => bool) public prohibitedActivities;
-    
+
     /// @notice Authorized validators
     mapping(address => bool) public authorizedValidators;
-    
+
     // Events
     event ActivitySubmitted(bytes32 indexed activityId, string description);
     event ActivityValidated(bytes32 indexed activityId, bool isValid, bool isShariaCompliant);
     event ValidatorAuthorized(address indexed validator);
     event ValidatorRevoked(address indexed validator);
     event ProhibitedActivityAdded(string activityType);
-    
+
     constructor() {
         // Add common prohibited activities (non-Sharia-compliant)
         prohibitedActivities["alcohol"] = true;
@@ -66,16 +66,16 @@ contract ActivityValidator {
         prohibitedActivities["speculation"] = true;
         prohibitedActivities["weapons"] = true;
         prohibitedActivities["tobacco"] = true;
-        
+
         // Set deployer as initial validator
         authorizedValidators[msg.sender] = true;
     }
-    
+
     modifier onlyValidator() {
         require(authorizedValidators[msg.sender], "Not an authorized validator");
         _;
     }
-    
+
     /**
      * @notice Submit an economic activity for validation
      * @param activityId Unique identifier for the activity
@@ -91,7 +91,7 @@ contract ActivityValidator {
     ) external {
         require(activities[activityId].activityId == bytes32(0), "Activity already exists");
         require(capitalRequired > 0, "Capital required must be positive");
-        
+
         address[] memory emptyAssets;
         activities[activityId] = EconomicActivity({
             activityId: activityId,
@@ -101,10 +101,10 @@ contract ActivityValidator {
             assetAddresses: emptyAssets,
             isValidated: false
         });
-        
+
         emit ActivitySubmitted(activityId, description);
     }
-    
+
     /**
      * @notice Validate an economic activity
      * @param activityId ID of the activity to validate
@@ -136,12 +136,12 @@ contract ActivityValidator {
             validationNotes: notes,
             validatedAt: block.timestamp
         });
-        
+
         activity.isValidated = true;
-        
+
         emit ActivityValidated(activityId, isValid, shariaCompliant);
     }
-    
+
     /**
      * @notice Check if an activity type is Sharia-compliant
      * @param activityType Type of activity to check
@@ -149,29 +149,29 @@ contract ActivityValidator {
     function isShariaCompliant(string memory activityType) public view returns (bool) {
         return !prohibitedActivities[activityType];
     }
-    
+
     /**
      * @notice Authorize a new validator
      * @param validator Address of the validator to authorize
      */
     function authorizeValidator(address validator) external onlyValidator {
         require(!authorizedValidators[validator], "Already authorized");
-        
+
         authorizedValidators[validator] = true;
         emit ValidatorAuthorized(validator);
     }
-    
+
     /**
      * @notice Revoke validator authorization
      * @param validator Address of the validator to revoke
      */
     function revokeValidator(address validator) external onlyValidator {
         require(authorizedValidators[validator], "Not authorized");
-        
+
         authorizedValidators[validator] = false;
         emit ValidatorRevoked(validator);
     }
-    
+
     /**
      * @notice Add a prohibited activity type
      * @param activityType Type of activity to prohibit
@@ -180,7 +180,7 @@ contract ActivityValidator {
         prohibitedActivities[activityType] = true;
         emit ProhibitedActivityAdded(activityType);
     }
-    
+
     /**
      * @notice Get validation record for an activity
      * @param activityId ID of the activity
@@ -188,7 +188,7 @@ contract ActivityValidator {
     function getValidation(bytes32 activityId) external view returns (ValidationRecord memory) {
         return validations[activityId];
     }
-    
+
     /**
      * @notice Get economic activity details
      * @param activityId ID of the activity
@@ -196,16 +196,13 @@ contract ActivityValidator {
     function getActivity(bytes32 activityId) external view returns (EconomicActivity memory) {
         return activities[activityId];
     }
-    
+
     /**
      * @notice Check if activity meets all Sharia compliance criteria
      * @param activityId ID of the activity
      */
     function meetsShariaCompliance(bytes32 activityId) external view returns (bool) {
         ValidationRecord memory record = validations[activityId];
-        return record.isValid && 
-               record.isShariaCompliant && 
-               record.isAssetBacked && 
-               record.hasRealEconomicValue;
+        return record.isValid && record.isShariaCompliant && record.isAssetBacked && record.hasRealEconomicValue;
     }
 }

@@ -31,22 +31,22 @@ contract HalalActivityIndex is Ownable, ReentrancyGuard {
 
     /// @notice Snapshot of HAI metrics at a point in time
     struct HAISnapshot {
-        uint256 score;              // Current HAI score (0-10000)
-        uint256 totalActivities;    // Total activities tracked
+        uint256 score; // Current HAI score (0-10000)
+        uint256 totalActivities; // Total activities tracked
         uint256 compliantActivities; // Number of Sharia-compliant activities
         uint256 assetBackedActivities; // Number of asset-backed activities
-        uint256 timestamp;          // Snapshot timestamp
+        uint256 timestamp; // Snapshot timestamp
     }
 
     /// @notice Activity metrics for HAI calculation
     struct ActivityMetrics {
         bytes32 activityId;
-        bool isCompliant;           // Sharia compliance status
-        bool isAssetBacked;         // Asset backing status
-        bool hasRealEconomicValue;  // Economic value status
-        uint256 validatorCount;     // Number of validators who reviewed
-        uint256 positiveVotes;      // Number of positive validation votes
-        uint256 timestamp;          // Activity timestamp
+        bool isCompliant; // Sharia compliance status
+        bool isAssetBacked; // Asset backing status
+        bool hasRealEconomicValue; // Economic value status
+        uint256 validatorCount; // Number of validators who reviewed
+        uint256 positiveVotes; // Number of positive validation votes
+        uint256 timestamp; // Activity timestamp
     }
 
     /// @notice Current HAI score
@@ -80,9 +80,9 @@ contract HalalActivityIndex is Ownable, ReentrancyGuard {
     mapping(address => bool) public authorizedUpdaters;
 
     /// @notice HAI score calculation weights (in basis points)
-    uint256 public complianceWeight = 4000;      // 40%
-    uint256 public assetBackingWeight = 2500;    // 25%
-    uint256 public economicValueWeight = 2000;   // 20%
+    uint256 public complianceWeight = 4000; // 40%
+    uint256 public assetBackingWeight = 2500; // 25%
+    uint256 public economicValueWeight = 2000; // 20%
     uint256 public validatorParticipationWeight = 1500; // 15%
 
     // Events
@@ -116,10 +116,7 @@ contract HalalActivityIndex is Ownable, ReentrancyGuard {
         uint256 validatorCount,
         uint256 positiveVotes
     ) external nonReentrant {
-        require(
-            authorizedUpdaters[msg.sender] || msg.sender == owner(),
-            "Not authorized"
-        );
+        require(authorizedUpdaters[msg.sender] || msg.sender == owner(), "Not authorized");
 
         activityMetrics[activityId] = ActivityMetrics({
             activityId: activityId,
@@ -165,11 +162,9 @@ contract HalalActivityIndex is Ownable, ReentrancyGuard {
         uint256 validatorParticipationScore = 8000; // 80% baseline
 
         // Weighted calculation
-        score =
-            (complianceScore * complianceWeight) / 10000 +
-            (assetBackingScore * assetBackingWeight) / 10000 +
-            (economicValueScore * economicValueWeight) / 10000 +
-            (validatorParticipationScore * validatorParticipationWeight) / 10000;
+        score = (complianceScore * complianceWeight) / 10000 + (assetBackingScore * assetBackingWeight) / 10000
+            + (economicValueScore * economicValueWeight) / 10000
+            + (validatorParticipationScore * validatorParticipationWeight) / 10000;
 
         // Cap at MAX_SCORE
         if (score > MAX_SCORE) {
@@ -235,13 +230,11 @@ contract HalalActivityIndex is Ownable, ReentrancyGuard {
      * @return compliant Number of compliant activities
      * @return complianceRate Compliance rate (in basis points)
      */
-    function getHAIMetrics() external view returns (
-        uint256 score,
-        uint256 percentage,
-        uint256 total,
-        uint256 compliant,
-        uint256 complianceRate
-    ) {
+    function getHAIMetrics()
+        external
+        view
+        returns (uint256 score, uint256 percentage, uint256 total, uint256 compliant, uint256 complianceRate)
+    {
         total = totalActivities;
         compliant = compliantActivities;
         score = currentScore;
@@ -305,8 +298,8 @@ contract HalalActivityIndex is Ownable, ReentrancyGuard {
         uint256 _economicValueWeight,
         uint256 _validatorParticipationWeight
     ) external onlyOwner {
-        uint256 totalWeight = _complianceWeight + _assetBackingWeight +
-            _economicValueWeight + _validatorParticipationWeight;
+        uint256 totalWeight = _complianceWeight + _assetBackingWeight + _economicValueWeight
+            + _validatorParticipationWeight;
         require(totalWeight == 10000, "Weights must sum to 10000");
 
         complianceWeight = _complianceWeight;
@@ -316,12 +309,7 @@ contract HalalActivityIndex is Ownable, ReentrancyGuard {
 
         _calculateScore();
 
-        emit WeightsUpdated(
-            _complianceWeight,
-            _assetBackingWeight,
-            _economicValueWeight,
-            _validatorParticipationWeight
-        );
+        emit WeightsUpdated(_complianceWeight, _assetBackingWeight, _economicValueWeight, _validatorParticipationWeight);
     }
 
     /**

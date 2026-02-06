@@ -250,7 +250,7 @@ contract AmanaReserve {
                 participant.profitShare += participantShare;
 
                 // Transfer profit to participant
-                (bool success, ) = payable(participantAddr).call{value: participantShare}("");
+                (bool success,) = payable(participantAddr).call{value: participantShare}("");
                 require(success, "Profit transfer failed");
 
                 emit ProfitPaid(participantAddr, participantShare);
@@ -337,7 +337,7 @@ contract AmanaReserve {
         participant.capitalContributed -= amount;
         totalCapital -= amount;
 
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        (bool success,) = payable(msg.sender).call{value: amount}("");
         require(success, "Transfer failed");
 
         emit CapitalWithdrawn(msg.sender, amount);
@@ -360,7 +360,7 @@ contract AmanaReserve {
         totalCapital -= participant.capitalContributed;
 
         // Transfer all withdrawable amount
-        (bool success, ) = payable(msg.sender).call{value: withdrawable}("");
+        (bool success,) = payable(msg.sender).call{value: withdrawable}("");
         require(success, "Transfer failed");
 
         emit ParticipantExited(msg.sender, withdrawable);
@@ -438,18 +438,17 @@ contract AmanaReserve {
     /**
      * @notice Get reserve statistics
      */
-    function getReserveStats() external view returns (
-        uint256 _totalCapital,
-        uint256 _participantCount,
-        uint256 _activityCount,
-        uint256 _minCapitalContribution
-    ) {
-        return (
-            totalCapital,
-            participantCount,
-            activityIds.length,
-            minCapitalContribution
-        );
+    function getReserveStats()
+        external
+        view
+        returns (
+            uint256 _totalCapital,
+            uint256 _participantCount,
+            uint256 _activityCount,
+            uint256 _minCapitalContribution
+        )
+    {
+        return (totalCapital, participantCount, activityIds.length, minCapitalContribution);
     }
 
     /**
