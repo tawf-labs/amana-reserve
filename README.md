@@ -641,9 +641,9 @@ Apache 2.0
 
 ## Community & Support
 
-- **Discord**: [Join our community](https://discord.gg/amana-reserve)
-- **Twitter**: [@AmanaReserve](https://twitter.com/AmanaReserve)
-- **Documentation**: [docs.amana.finance](https://docs.amana.finance)
+- **Discord**: [Join our community](https://discord.gg/s7K59wE4qc)
+- **Twitter**: [@TAWFProtocol](https://twitter.com/TAWFProtocol)
+- **Documentation**: [amana.tawf.xyz/docs](https://amana.tawf.xyz/docs)
 - **GitHub Issues**: [Report bugs or request features](https://github.com/tawf-labs/amana-reserve/issues)
 
 ---
